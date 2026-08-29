@@ -3,8 +3,24 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://sun-map-korea.vercel.app"),
   title: "SUN MAP KOREA — 전국 일조 지도",
-  description: "대한민국 어디서나 날짜와 시간에 따른 햇빛과 건물 그림자를 탐색하는 인터랙티브 일조 지도",
+  description: "대한민국 어디서나, 시간에 따라 달라지는 햇빛과 건물 그림자를 한눈에.",
+  openGraph: {
+    title: "SUN MAP KOREA",
+    description: "대한민국 어디서나, 시간에 따라 달라지는 햇빛과 건물 그림자를 한눈에.",
+    url: "/",
+    siteName: "SUN MAP KOREA",
+    locale: "ko_KR",
+    type: "website",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "SUN MAP KOREA" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SUN MAP KOREA",
+    description: "대한민국 어디서나, 시간에 따라 달라지는 햇빛과 건물 그림자를 한눈에.",
+    images: ["/opengraph-image"],
+  },
 };
 
 export const viewport: Viewport = {

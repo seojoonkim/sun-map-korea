@@ -8,6 +8,8 @@ const mapCanvas = readFileSync(join(process.cwd(), "src/components/MapCanvas.tsx
 const geoSearch = readFileSync(join(process.cwd(), "src/components/GeoSearch.tsx"), "utf8");
 const appIcon = readFileSync(join(process.cwd(), "src/app/icon.svg"), "utf8");
 const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+const layout = readFileSync(join(process.cwd(), "src/app/layout.tsx"), "utf8");
+const openGraphImage = readFileSync(join(process.cwd(), "src/app/opengraph-image.tsx"), "utf8");
 
 test("map-first experience removes landmark picking surfaces", () => {
   assert.doesNotMatch(component, /LANDMARKS|place-panel|search-box|map-marker|selected-point/);
@@ -85,8 +87,24 @@ test("sun position and daylight metrics share one compact information row", () =
   assert.match(region, /일출 \/ 일몰/);
   assert.doesNotMatch(region, /지도 중심 · 햇빛 리포트/);
   assert.match(css, /\.readout-values\s*\{[^}]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.doesNotMatch(css, /\.readout-values\s*\{[^}]*border-block/);
+  assert.doesNotMatch(css, /\.readout-values div\+div\s*\{[^}]*border-left/);
   assert.doesNotMatch(css, /\.readout-values div:nth-child\(n\+3\)\s*\{[^}]*border-top/);
   assert.doesNotMatch(component, /className="summary-panel glass-panel"/);
+});
+
+test("floating panels use whitespace instead of internal divider lines", () => {
+  assert.doesNotMatch(css, /\.date-controls\s*\{[^}]*border-bottom/);
+  assert.doesNotMatch(css, /\.glass-panel\s*\{[^}]*inset\s+0\s+0\s+0\s+1px/);
+});
+
+test("social sharing has concise copy and a dedicated minimal image", () => {
+  assert.match(layout, /대한민국 어디서나, 시간에 따라 달라지는 햇빛과 건물 그림자를 한눈에\./);
+  assert.match(layout, /openGraph:\s*\{/);
+  assert.match(layout, /images:\s*\[\{\s*url:\s*["']\/opengraph-image["']/);
+  assert.match(openGraphImage, /SUN MAP/);
+  assert.match(openGraphImage, /1200/);
+  assert.match(openGraphImage, /630/);
 });
 
 test("date label remains on one line in the mobile layout", () => {
