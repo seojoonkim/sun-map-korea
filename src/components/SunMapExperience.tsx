@@ -146,10 +146,7 @@ export default function SunMapExperience() {
 
       <section className="solar-readout glass-panel" aria-label="지도 중심 태양과 일조 정보">
         <div className="readout-heading">
-          <div>
-            <span className="eyebrow">지도 중심 · 햇빛 리포트</span>
-            <h1>{currentLocation}</h1>
-          </div>
+          <h1>{currentLocation}</h1>
           <span className="center-coordinates">{coordinates[1].toFixed(3)}<br/>{coordinates[0].toFixed(3)}</span>
         </div>
         <div className="readout-values">

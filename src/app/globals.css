@@ -51,13 +51,12 @@ button:focus-visible,input:focus-visible { outline:3px solid var(--pink); outlin
 .prototype-badge { margin-left:auto; color:var(--violet); }
 .icon { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 .eyebrow { color:var(--violet); font-size:9px; font-weight:800; letter-spacing:.12em; }
-h1 { margin:6px 0 0; max-width:190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:20px; letter-spacing:-.04em; }
+h1 { margin:0; max-width:190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:20px; letter-spacing:-.04em; }
 .solar-readout { position:absolute; z-index:3; top:88px; right:24px; width:430px; padding:15px 17px 12px; }
-.readout-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
-.readout-values { display:grid; grid-template-columns:1fr 1.35fr; margin-top:12px; border-block:1px solid var(--line); }
-.readout-values div { min-width:0; padding:10px 5px; display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
-.readout-values div:nth-child(even) { padding-left:15px; border-left:1px solid var(--line); }
-.readout-values div:nth-child(n+3) { border-top:1px solid var(--line); }
+.readout-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.readout-values { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:9px; border-block:1px solid var(--line); }
+.readout-values div { min-width:0; padding:8px 6px; display:flex; flex-direction:column; align-items:flex-start; gap:3px; }
+.readout-values div+div { border-left:1px solid var(--line); }
 .readout-values span { color:var(--muted); font-size:9px; font-weight:700; white-space:nowrap; }
 .readout-values strong { font:800 17px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; }
 .readout-values small { margin-left:3px; color:var(--muted); font:8px "Apple SD Gothic Neo",sans-serif; }
@@ -70,7 +69,7 @@ h1 { margin:6px 0 0; max-width:190px; overflow:hidden; text-overflow:ellipsis; w
 .timeline { position:absolute; z-index:4; left:50%; transform:translateX(-50%); bottom:22px; width:min(720px,calc(100% - 700px)); min-width:560px; padding:12px 16px 14px; }
 .date-controls { display:flex; align-items:center; gap:5px; padding-bottom:9px; border-bottom:1px solid var(--line); }
 .date-input { height:34px; display:flex; align-items:center; gap:8px; padding:0 11px; border:1px solid rgba(121,103,216,.25); border-radius:17px; color:var(--violet); background:#f4f0ff; }
-.date-input span { color:var(--muted); font-size:9px; font-weight:700; }
+.date-input span { flex:none; color:var(--muted); font-size:9px; font-weight:700; white-space:nowrap; }
 .date-input input { width:116px; border:0; outline:0; background:transparent; color:var(--ink); font:11px ui-monospace,SFMono-Regular,Menlo,monospace; }
 .date-controls button { height:32px; border:0; border-radius:16px; padding:0 10px; color:var(--muted); background:transparent; font-size:10px; font-weight:800; cursor:pointer; }
 .date-controls button.active { color:var(--ink); background:var(--solar); }
@@ -116,18 +115,17 @@ h1 { margin:6px 0 0; max-width:190px; overflow:hidden; text-overflow:ellipsis; w
   .geo-results { top:51px; left:calc(-1 * (105px + 7px)); }
   .district-badge,.prototype-badge { display:none; }
   .solar-readout { top:61px; left:9px; right:9px; width:auto; padding:9px 12px 8px; border-radius:18px; }
-  .readout-heading h1 { max-width:280px; margin-top:3px; font-size:13px; }
-  .readout-heading .eyebrow { font-size:7px; }
+  .readout-heading h1 { max-width:280px; font-size:13px; }
   .center-coordinates { display:none; }
-  .readout-values { margin-top:7px; grid-template-columns:1fr 1.35fr; }
-  .readout-values div { padding:5px 4px; }
-  .readout-values div:nth-child(even) { padding-left:10px; }
-  .readout-values span { font-size:8px; }
-  .readout-values strong { font-size:13px; }
+  .readout-values { margin-top:6px; }
+  .readout-values div { padding:5px 4px; gap:2px; }
+  .readout-values span { font-size:7px; }
+  .readout-values strong { font-size:12px; }
+  .readout-values small { margin-left:1px; font-size:7px; }
   .source { display:none; }
   .timeline { left:9px; right:9px; bottom:max(7px,env(safe-area-inset-bottom)); transform:none; width:auto; min-width:0; padding:9px 10px 10px; border-radius:20px; }
   .date-controls { gap:5px; padding-bottom:7px; }
-  .date-input { height:44px; flex:1; min-width:0; border-radius:15px; }
+  .date-input { height:44px; flex:1; min-width:0; gap:6px; border-radius:15px; }
   .date-input input { width:100%; min-width:108px; min-height:44px; font-size:11px; }
   .date-controls>button { flex:none; min-width:44px; height:44px; padding:0 10px; }
   .season-presets { display:none; }

@@ -74,7 +74,7 @@ test("all ordinary OpenMapTiles building footprints remain eligible for 3D rende
   assert.match(mapCanvas, /"fill-extrusion-height": buildingHeight/);
 });
 
-test("sun position and daylight metrics share one unified information region", () => {
+test("sun position and daylight metrics share one compact information row", () => {
   const regionStart = component.indexOf('className="solar-readout glass-panel"');
   const regionEnd = component.indexOf("</section>", regionStart);
   const region = component.slice(regionStart, regionEnd);
@@ -83,7 +83,16 @@ test("sun position and daylight metrics share one unified information region", (
   assert.match(region, /고도각/);
   assert.match(region, /일조 가능/);
   assert.match(region, /일출 \/ 일몰/);
+  assert.doesNotMatch(region, /지도 중심 · 햇빛 리포트/);
+  assert.match(css, /\.readout-values\s*\{[^}]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.doesNotMatch(css, /\.readout-values div:nth-child\(n\+3\)\s*\{[^}]*border-top/);
   assert.doesNotMatch(component, /className="summary-panel glass-panel"/);
+});
+
+test("date label remains on one line in the mobile layout", () => {
+  assert.match(css, /\.date-input span\s*\{[^}]*white-space:nowrap/);
+  const mobile = css.slice(css.indexOf("@media (max-width:760px)"));
+  assert.match(mobile, /\.date-input\s*\{[^}]*flex:1[^}]*min-width:0/);
 });
 
 test("height copy accurately distinguishes OSM-derived data from survey-grade data", () => {
