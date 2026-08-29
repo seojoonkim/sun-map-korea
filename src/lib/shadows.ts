@@ -61,10 +61,24 @@ export function normalizeBuildingFeatures(features: readonly RawBuildingFeature[
 
   for (const feature of features) {
     if (feature.properties?.hide_3d === true) continue;
-    const rawHeight = Number(feature.properties?.render_height ?? feature.properties?.height);
-    const heightEstimated = !Number.isFinite(rawHeight) || rawHeight <= 0;
-    const height = heightEstimated ? DEFAULT_BUILDING_HEIGHT : rawHeight;
-    const rawMinHeight = Number(feature.properties?.render_min_height ?? feature.properties?.minHeight ?? 0);
+    const explicitHeight = Number(feature.properties?.render_height ?? feature.properties?.height);
+    const floorCount = Number(feature.properties?.num_floors ?? feature.properties?.levels);
+    const hasExplicitHeight = Number.isFinite(explicitHeight) && explicitHeight > 0;
+    const hasFloorEstimate = Number.isFinite(floorCount) && floorCount > 0;
+    const height = hasExplicitHeight
+      ? explicitHeight
+      : hasFloorEstimate
+        ? floorCount * 3
+        : DEFAULT_BUILDING_HEIGHT;
+    const heightEstimated = feature.properties?.heightEstimated === false
+      ? false
+      : !hasExplicitHeight;
+    const rawMinHeight = Number(
+      feature.properties?.render_min_height
+      ?? feature.properties?.min_height
+      ?? feature.properties?.minHeight
+      ?? 0,
+    );
     const minHeight = Number.isFinite(rawMinHeight) && rawMinHeight >= 0 ? Math.min(rawMinHeight, height) : 0;
     const polygons = feature.geometry.type === "Polygon"
       ? [feature.geometry.coordinates]
@@ -82,7 +96,7 @@ export function normalizeBuildingFeatures(features: readonly RawBuildingFeature[
           height,
           minHeight,
           heightEstimated,
-          source: "OpenStreetMap",
+          source: feature.properties?.footprintSource ?? feature.properties?.source ?? "OpenStreetMap",
         },
         geometry: { type: "Polygon", coordinates },
       });

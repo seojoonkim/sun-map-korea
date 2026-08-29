@@ -27,6 +27,14 @@ test("keeps real height and minimum height when supplied", () => {
   assert.equal(result.features[0].properties?.heightEstimated, false);
 });
 
+test("uses Overture floors and snake-case minimum height before the generic fallback", () => {
+  const result = normalizeBuildingFeatures([feature({ num_floors: 7, min_height: 3, footprintSource: "overture" })]);
+  assert.equal(result.features[0].properties?.height, 21);
+  assert.equal(result.features[0].properties?.minHeight, 3);
+  assert.equal(result.features[0].properties?.heightEstimated, true);
+  assert.equal(result.features[0].properties?.source, "overture");
+});
+
 test("falls back for non-positive heights and excludes explicitly hidden buildings", () => {
   const result = normalizeBuildingFeatures([
     feature({ render_height: 0 }),

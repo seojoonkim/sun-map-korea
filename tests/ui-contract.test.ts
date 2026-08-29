@@ -69,11 +69,11 @@ test("the visual system is pop and the sun identity is friendly", () => {
   assert.match(appIcon, /#ff6fae/i);
 });
 
-test("all ordinary OpenMapTiles building footprints remain eligible for 3D rendering", () => {
-  assert.doesNotMatch(mapCanvas, /filter:\s*\["!=",\s*\["get",\s*"hide_3d"\],\s*true\]/);
-  assert.match(mapCanvas, /\["!",\s*\["==",\s*\["get",\s*"hide_3d"\],\s*true\]\]/);
+test("all ordinary nationwide Overture footprints remain eligible for 3D rendering", () => {
+  assert.match(mapCanvas, /"source-layer": "building"/);
+  assert.match(mapCanvas, /is_underground/);
   assert.match(mapCanvas, /DEFAULT_BUILDING_HEIGHT/);
-  assert.match(mapCanvas, /"fill-extrusion-height": buildingHeight/);
+  assert.match(mapCanvas, /"fill-extrusion-height": fallbackHeight/);
 });
 
 test("sun position and daylight metrics share one compact information row", () => {
@@ -113,10 +113,15 @@ test("date label remains on one line in the mobile layout", () => {
   assert.match(mobile, /\.date-input\s*\{[^}]*flex:1[^}]*min-width:0/);
 });
 
-test("height copy accurately distinguishes OSM-derived data from survey-grade data", () => {
-  assert.match(component, /OSM 입력·층수 우선/);
-  assert.match(component, /높이 미입력 건물은 9m로 추정/);
-  assert.match(component, /정밀 측량값 아님/);
-  assert.doesNotMatch(component, /실제 OSM 건물 footprint\/높이/);
-  assert.match(mapCanvas, /render_height/);
+test("height copy distinguishes Seoul precision data from the nationwide fallback", () => {
+  assert.match(component, /서울 S-MAP 2025 정밀 높이/);
+  assert.match(component, /전국 Overture 실제 높이·층수 우선/);
+  assert.match(component, /미입력은 9m 추정/);
+  assert.match(mapCanvas, /OVERTURE_BUILDINGS_URL/);
+  assert.match(mapCanvas, /seoul-building-3d/);
+});
+
+test("the live map exposes its active building source and rendered feature count for QA", () => {
+  assert.match(mapCanvas, /dataset\.buildingSource/);
+  assert.match(mapCanvas, /dataset\.buildingCount/);
 });

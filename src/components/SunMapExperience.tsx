@@ -155,7 +155,7 @@ export default function SunMapExperience() {
           <div><span>일조 가능</span><strong>{daylight.toFixed(1)}<small>시간</small></strong></div>
           <div><span>일출 / 일몰</span><strong>{formatKstTime(sunTimes.sunrise)}<small> / {formatKstTime(sunTimes.sunset)}</small></strong></div>
         </div>
-        <p className="source"><span className={`status-dot ${solar.isDaylight ? "live" : ""}`} /> {solar.isDaylight ? "일조 시뮬레이션" : "야간"} · <strong>높이 데이터</strong> OSM 입력·층수 우선 · 높이 미입력 건물은 9m로 추정 · 정밀 측량값 아님</p>
+        <p className="source"><span className={`status-dot ${solar.isDaylight ? "live" : ""}`} /> {solar.isDaylight ? "일조 시뮬레이션" : "야간"} · <strong>건물 데이터</strong> 서울 S-MAP 2025 정밀 높이 · 전국 Overture 실제 높이·층수 우선 · 미입력은 9m 추정</p>
       </section>
 
       <section className="timeline glass-panel" aria-label="날짜와 시간 설정">
