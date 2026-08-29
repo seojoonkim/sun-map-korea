@@ -67,9 +67,29 @@ test("the visual system is pop and the sun identity is friendly", () => {
   assert.match(appIcon, /#ff6fae/i);
 });
 
+test("all ordinary OpenMapTiles building footprints remain eligible for 3D rendering", () => {
+  assert.doesNotMatch(mapCanvas, /filter:\s*\["!=",\s*\["get",\s*"hide_3d"\],\s*true\]/);
+  assert.match(mapCanvas, /\["!",\s*\["==",\s*\["get",\s*"hide_3d"\],\s*true\]\]/);
+  assert.match(mapCanvas, /DEFAULT_BUILDING_HEIGHT/);
+  assert.match(mapCanvas, /"fill-extrusion-height": buildingHeight/);
+});
+
+test("sun position and daylight metrics share one unified information region", () => {
+  const regionStart = component.indexOf('className="solar-readout glass-panel"');
+  const regionEnd = component.indexOf("</section>", regionStart);
+  const region = component.slice(regionStart, regionEnd);
+  assert.match(region, /currentLocation/);
+  assert.match(region, /방위각/);
+  assert.match(region, /고도각/);
+  assert.match(region, /일조 가능/);
+  assert.match(region, /일출 \/ 일몰/);
+  assert.doesNotMatch(component, /className="summary-panel glass-panel"/);
+});
+
 test("height copy accurately distinguishes OSM-derived data from survey-grade data", () => {
-  assert.match(component, /OSM 입력·층수 기반 높이/);
-  assert.match(component, /정밀 측량값이 아니며/);
+  assert.match(component, /OSM 입력·층수 우선/);
+  assert.match(component, /높이 미입력 건물은 9m로 추정/);
+  assert.match(component, /정밀 측량값 아님/);
   assert.doesNotMatch(component, /실제 OSM 건물 footprint\/높이/);
   assert.match(mapCanvas, /render_height/);
 });

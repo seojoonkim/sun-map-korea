@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import maplibregl, { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
+import maplibregl, { GeoJSONSource, Map as MapLibreMap, type ExpressionSpecification } from "maplibre-gl";
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { SolarPosition } from "@/lib/solar";
-import { createBuildingShadows, normalizeBuildingFeatures } from "@/lib/shadows";
+import { createBuildingShadows, DEFAULT_BUILDING_HEIGHT, normalizeBuildingFeatures } from "@/lib/shadows";
 
 const SEOUL_CENTER: [number, number] = [127.02761, 37.49794];
 const KOREA_BOUNDS: [[number, number], [number, number]] = [[124.0, 32.2], [132.2, 39.2]];
@@ -103,6 +103,12 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
     };
 
     map.on("style.load", () => {
+      const buildingHeight: ExpressionSpecification = [
+        "case",
+        [">", ["coalesce", ["get", "render_height"], 0], 0],
+        ["get", "render_height"],
+        DEFAULT_BUILDING_HEIGHT,
+      ];
       map.addSource("osm-buildings", { type: "vector", url: "https://tiles.openfreemap.org/planet" });
       map.addSource("solar-shadow", { type: "geojson", data: EMPTY_BUILDINGS });
       map.addLayer({
@@ -120,10 +126,12 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
         source: "osm-buildings",
         "source-layer": "building",
         minzoom: 13,
-        filter: ["!=", ["get", "hide_3d"], true],
+        // A missing hide_3d property means a normal building. Using `!= true`
+        // drops those null-valued features in MapLibre expression semantics.
+        filter: ["!", ["==", ["get", "hide_3d"], true]],
         paint: {
-          "fill-extrusion-color": ["interpolate", ["linear"], ["get", "render_height"], 4, "#ffb9d7", 30, "#92ddff", 100, "#fff0a6"],
-          "fill-extrusion-height": ["get", "render_height"],
+          "fill-extrusion-color": ["interpolate", ["linear"], buildingHeight, 4, "#ffb9d7", 30, "#92ddff", 100, "#fff0a6"],
+          "fill-extrusion-height": buildingHeight,
           "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
           "fill-extrusion-opacity": compactMap ? 0.88 : 0.92,
           "fill-extrusion-vertical-gradient": !compactMap,

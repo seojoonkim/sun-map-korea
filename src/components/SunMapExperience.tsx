@@ -144,26 +144,22 @@ export default function SunMapExperience() {
         <div className="prototype-badge">NATIONWIDE · LIVE 3D</div>
       </header>
 
-      <section className="solar-readout glass-panel" aria-label="태양 위치 정보">
-        <div className="mobile-locality">{currentLocation}</div>
+      <section className="solar-readout glass-panel" aria-label="지도 중심 태양과 일조 정보">
+        <div className="readout-heading">
+          <div>
+            <span className="eyebrow">지도 중심 · 햇빛 리포트</span>
+            <h1>{currentLocation}</h1>
+          </div>
+          <span className="center-coordinates">{coordinates[1].toFixed(3)}<br/>{coordinates[0].toFixed(3)}</span>
+        </div>
         <div className="readout-values">
           <div><span>방위각</span><strong>{solar.azimuth.toFixed(1)}°</strong></div>
           <div><span>고도각</span><strong className="accent">{solar.elevation.toFixed(1)}°</strong></div>
-        </div>
-        <p><span className={`status-dot ${solar.isDaylight ? "live" : ""}`} /> {solar.isDaylight ? "일조 시뮬레이션" : "야간"}</p>
-      </section>
-
-      <aside className="summary-panel glass-panel">
-        <div className="summary-title">
-          <div><span className="eyebrow">지도 중심 · 햇빛 리포트</span><h1>{currentLocation}</h1></div>
-          <span className="center-coordinates">{coordinates[1].toFixed(3)}<br/>{coordinates[0].toFixed(3)}</span>
-        </div>
-        <div className="summary-metrics">
           <div><span>일조 가능</span><strong>{daylight.toFixed(1)}<small>시간</small></strong></div>
           <div><span>일출 / 일몰</span><strong>{formatKstTime(sunTimes.sunrise)}<small> / {formatKstTime(sunTimes.sunset)}</small></strong></div>
         </div>
-        <p className="source"><strong>높이 데이터</strong> OSM 입력·층수 기반 높이만 반영 · 정밀 측량값이 아니며 누락 건물은 그림자에서 제외</p>
-      </aside>
+        <p className="source"><span className={`status-dot ${solar.isDaylight ? "live" : ""}`} /> {solar.isDaylight ? "일조 시뮬레이션" : "야간"} · <strong>높이 데이터</strong> OSM 입력·층수 우선 · 높이 미입력 건물은 9m로 추정 · 정밀 측량값 아님</p>
+      </section>
 
       <section className="timeline glass-panel" aria-label="날짜와 시간 설정">
         <div className="date-controls">

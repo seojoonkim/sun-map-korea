@@ -1,6 +1,7 @@
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 
 const EARTH_RADIUS = 6_371_000;
+export const DEFAULT_BUILDING_HEIGHT = 9;
 
 function destination([lng, lat]: [number, number], bearing: number, distance: number): [number, number] {
   const angular = distance / EARTH_RADIUS;
@@ -51,8 +52,8 @@ function convexHull(points: [number, number][]): [number, number][] {
 
 /**
  * Converts the currently loaded OpenMapTiles building features to one polygon per
- * real OSM footprint. Features without a rendered height are intentionally
- * omitted instead of inventing prototype geometry or dimensions.
+ * real OSM footprint. A conservative three-storey estimate keeps footprints
+ * without height tags visible while preserving explicit OSM heights.
  */
 export function normalizeBuildingFeatures(features: readonly RawBuildingFeature[]): FeatureCollection<Polygon> {
   const normalized: Feature<Polygon>[] = [];
@@ -60,8 +61,9 @@ export function normalizeBuildingFeatures(features: readonly RawBuildingFeature[
 
   for (const feature of features) {
     if (feature.properties?.hide_3d === true) continue;
-    const height = Number(feature.properties?.render_height ?? feature.properties?.height);
-    if (!Number.isFinite(height) || height <= 0) continue;
+    const rawHeight = Number(feature.properties?.render_height ?? feature.properties?.height);
+    const heightEstimated = !Number.isFinite(rawHeight) || rawHeight <= 0;
+    const height = heightEstimated ? DEFAULT_BUILDING_HEIGHT : rawHeight;
     const rawMinHeight = Number(feature.properties?.render_min_height ?? feature.properties?.minHeight ?? 0);
     const minHeight = Number.isFinite(rawMinHeight) && rawMinHeight >= 0 ? Math.min(rawMinHeight, height) : 0;
     const polygons = feature.geometry.type === "Polygon"
@@ -79,6 +81,7 @@ export function normalizeBuildingFeatures(features: readonly RawBuildingFeature[
           id: feature.id == null ? `osm-${normalized.length + 1}` : `${feature.id}-${partIndex}`,
           height,
           minHeight,
+          heightEstimated,
           source: "OpenStreetMap",
         },
         geometry: { type: "Polygon", coordinates },

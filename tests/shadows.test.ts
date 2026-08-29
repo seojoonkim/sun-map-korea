@@ -1,0 +1,37 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import type { MultiPolygon, Polygon } from "geojson";
+import { DEFAULT_BUILDING_HEIGHT, normalizeBuildingFeatures } from "../src/lib/shadows";
+
+const square: Polygon = {
+  type: "Polygon",
+  coordinates: [[[127, 37.5], [127.001, 37.5], [127.001, 37.501], [127, 37.501], [127, 37.5]]],
+};
+
+function feature(properties: Record<string, unknown>, geometry: Polygon | MultiPolygon = square) {
+  return { properties, geometry };
+}
+
+test("uses a conservative default for footprints without a height", () => {
+  const result = normalizeBuildingFeatures([feature({})]);
+  assert.equal(result.features.length, 1);
+  assert.equal(result.features[0].properties?.height, DEFAULT_BUILDING_HEIGHT);
+  assert.equal(result.features[0].properties?.minHeight, 0);
+  assert.equal(result.features[0].properties?.heightEstimated, true);
+});
+
+test("keeps real height and minimum height when supplied", () => {
+  const result = normalizeBuildingFeatures([feature({ render_height: 42, render_min_height: 6 })]);
+  assert.equal(result.features[0].properties?.height, 42);
+  assert.equal(result.features[0].properties?.minHeight, 6);
+  assert.equal(result.features[0].properties?.heightEstimated, false);
+});
+
+test("falls back for non-positive heights and excludes explicitly hidden buildings", () => {
+  const result = normalizeBuildingFeatures([
+    feature({ render_height: 0 }),
+    feature({ hide_3d: true, render_height: 30 }),
+  ]);
+  assert.equal(result.features.length, 1);
+  assert.equal(result.features[0].properties?.height, DEFAULT_BUILDING_HEIGHT);
+});

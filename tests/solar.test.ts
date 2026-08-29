@@ -46,11 +46,13 @@ test("OSM building features preserve real footprints and rendered heights for sh
   ];
 
   const buildings = normalizeBuildingFeatures(raw);
-  assert.equal(buildings.features.length, 3);
+  assert.equal(buildings.features.length, 4);
   assert.equal(buildings.features[0].properties?.height, 42.5);
   assert.equal(buildings.features[0].properties?.minHeight, 3);
   assert.deepEqual(buildings.features[0].geometry.coordinates, raw[0].geometry.coordinates);
   assert.ok(buildings.features.every((feature) => Number(feature.properties?.height) > 0));
+  assert.equal(buildings.features[3].properties?.height, 9);
+  assert.equal(buildings.features[3].properties?.heightEstimated, true);
 
   const noon = createBuildingShadows(buildings, 180, 55);
   const evening = createBuildingShadows(buildings, 260, 12);

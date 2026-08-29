@@ -52,26 +52,19 @@ button:focus-visible,input:focus-visible { outline:3px solid var(--pink); outlin
 .icon { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 .eyebrow { color:var(--violet); font-size:9px; font-weight:800; letter-spacing:.12em; }
 h1 { margin:6px 0 0; max-width:190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:20px; letter-spacing:-.04em; }
-.solar-readout { position:absolute; z-index:3; top:88px; left:50%; transform:translateX(-50%); width:292px; padding:12px 16px 10px; }
-.mobile-locality { display:none; }
-.readout-values { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
-.readout-values div { display:flex; align-items:baseline; justify-content:space-between; }
-.readout-values span { color:var(--muted); font-size:10px; font-weight:700; }
-.readout-values strong { font:800 18px ui-monospace,SFMono-Regular,Menlo,monospace; }
+.solar-readout { position:absolute; z-index:3; top:88px; right:24px; width:430px; padding:15px 17px 12px; }
+.readout-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.readout-values { display:grid; grid-template-columns:1fr 1.35fr; margin-top:12px; border-block:1px solid var(--line); }
+.readout-values div { min-width:0; padding:10px 5px; display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+.readout-values div:nth-child(even) { padding-left:15px; border-left:1px solid var(--line); }
+.readout-values div:nth-child(n+3) { border-top:1px solid var(--line); }
+.readout-values span { color:var(--muted); font-size:9px; font-weight:700; white-space:nowrap; }
+.readout-values strong { font:800 17px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; }
+.readout-values small { margin-left:3px; color:var(--muted); font:8px "Apple SD Gothic Neo",sans-serif; }
 .readout-values .accent { color:#d84a8d; }
-.solar-readout p { margin:8px 0 0; padding-top:8px; border-top:1px solid var(--line); color:var(--muted); font-size:9px; text-align:center; }
 .status-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:#9e98ad; margin-right:5px; }
 .status-dot.live { background:var(--solar); box-shadow:0 0 0 3px rgba(255,207,69,.25); }
-.summary-panel { position:absolute; z-index:3; width:314px; right:24px; top:88px; padding:17px; }
-.summary-title { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
 .center-coordinates { color:#938ba4; text-align:right; font:9px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; }
-.summary-metrics { display:grid; grid-template-columns:.8fr 1.2fr; margin-top:15px; border-block:1px solid var(--line); }
-.summary-metrics div { padding:11px 3px; }
-.summary-metrics div+div { padding-left:13px; border-left:1px solid var(--line); }
-.summary-metrics span,.summary-metrics strong { display:block; }
-.summary-metrics span { color:var(--muted); font-size:9px; font-weight:700; }
-.summary-metrics strong { margin-top:5px; font:700 17px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; }
-.summary-metrics small { margin-left:3px; color:var(--muted); font:8px "Apple SD Gothic Neo",sans-serif; }
 .source { margin:10px 0 0; color:var(--muted); font-size:8px; line-height:1.5; }
 .source strong { color:var(--violet); }
 .timeline { position:absolute; z-index:4; left:50%; transform:translateX(-50%); bottom:22px; width:min(720px,calc(100% - 700px)); min-width:560px; padding:12px 16px 14px; }
@@ -102,7 +95,7 @@ h1 { margin:6px 0 0; max-width:190px; overflow:hidden; text-overflow:ellipsis; w
   .topbar { left:14px; right:14px; gap:10px; }
   .district-badge,.prototype-badge { display:none; }
   .geo-search-shell { width:min(560px,62vw); margin-left:auto; }
-  .summary-panel { right:14px; }
+  .solar-readout { right:14px; }
   .timeline { width:calc(100% - 60px); min-width:0; }
 }
 @media (max-width:760px) {
@@ -122,19 +115,15 @@ h1 { margin:6px 0 0; max-width:190px; overflow:hidden; text-overflow:ellipsis; w
   .geo-submit { display:none; }
   .geo-results { top:51px; left:calc(-1 * (105px + 7px)); }
   .district-badge,.prototype-badge { display:none; }
-  .solar-readout { top:61px; width:auto; min-width:230px; padding:8px 12px; }
-  .mobile-locality { display:block; max-width:250px; margin-bottom:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--violet); text-align:center; font-size:9px; font-weight:800; }
-  .readout-values { gap:15px; }
+  .solar-readout { top:61px; left:9px; right:9px; width:auto; padding:9px 12px 8px; border-radius:18px; }
+  .readout-heading h1 { max-width:280px; margin-top:3px; font-size:13px; }
+  .readout-heading .eyebrow { font-size:7px; }
+  .center-coordinates { display:none; }
+  .readout-values { margin-top:7px; grid-template-columns:1fr 1.35fr; }
+  .readout-values div { padding:5px 4px; }
+  .readout-values div:nth-child(even) { padding-left:10px; }
   .readout-values span { font-size:8px; }
-  .readout-values strong { font-size:14px; }
-  .solar-readout p { display:none; }
-  .summary-panel { top:auto; left:9px; right:9px; bottom:158px; width:auto; padding:9px 12px; border-radius:18px; }
-  .summary-title { display:none; }
-  .summary-metrics { margin:0; border:0; grid-template-columns:1fr 1.45fr; }
-  .summary-metrics div { padding:2px 4px; }
-  .summary-metrics div+div { padding-left:10px; }
-  .summary-metrics span { font-size:8px; }
-  .summary-metrics strong { margin-top:2px; font-size:13px; }
+  .readout-values strong { font-size:13px; }
   .source { display:none; }
   .timeline { left:9px; right:9px; bottom:max(7px,env(safe-area-inset-bottom)); transform:none; width:auto; min-width:0; padding:9px 10px 10px; border-radius:20px; }
   .date-controls { gap:5px; padding-bottom:7px; }
@@ -153,7 +142,7 @@ h1 { margin:6px 0 0; max-width:190px; overflow:hidden; text-overflow:ellipsis; w
   .geo-results { left:calc(-1 * (47px + 7px)); }
 }
 @media (max-height:650px) and (max-width:760px) {
-  .summary-panel { display:none; }
+  .solar-readout { top:58px; }
   .timeline { padding-block:6px; }
 }
 @media (prefers-reduced-motion:reduce) {
