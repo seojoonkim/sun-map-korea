@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import maplibregl, { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
-import { GANGNAM_CENTER, LANDMARKS } from "@/data/landmarks";
-import { createShadowFan } from "@/lib/shadows";
+import { LANDMARKS } from "@/data/landmarks";
+import { createBuildingShadows, createPrototypeBuildings } from "@/lib/shadows";
 import {
   dateAtKst,
   daylightHours,
@@ -87,9 +87,12 @@ export default function SunMapExperience() {
   const updateMapLayers = useCallback(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
-    const fan = createShadowFan(selected.coordinates, solar.azimuth, solar.elevation);
+    const buildings = createPrototypeBuildings(selected.coordinates);
+    const shadows = createBuildingShadows(buildings, solar.azimuth, solar.elevation);
     const shadowSource = map.getSource("solar-shadow") as GeoJSONSource | undefined;
-    shadowSource?.setData(fan);
+    shadowSource?.setData(shadows);
+    const buildingSource = map.getSource("prototype-buildings") as GeoJSONSource | undefined;
+    buildingSource?.setData(buildings);
     const pointSource = map.getSource("selected-point") as GeoJSONSource | undefined;
     pointSource?.setData({
       type: "FeatureCollection",
@@ -102,8 +105,8 @@ export default function SunMapExperience() {
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: RASTER_STYLE,
-      center: GANGNAM_CENTER,
-      zoom: 14.35,
+      center: LANDMARKS[0].coordinates,
+      zoom: 15.35,
       pitch: 53,
       bearing: -18,
       minZoom: 12.2,
@@ -116,36 +119,33 @@ export default function SunMapExperience() {
     map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
 
     map.on("style.load", () => {
-      const vectorSource = map.getSource("openmaptiles");
-      if (vectorSource && !map.getLayer("building-3d")) {
-        const labelLayer = map.getStyle().layers?.find((layer) => layer.type === "symbol");
-        map.addLayer({
-          id: "building-3d",
-          type: "fill-extrusion",
-          source: "openmaptiles",
-          "source-layer": "building",
-          minzoom: 13.5,
-          paint: {
-            "fill-extrusion-color": ["interpolate", ["linear"], ["get", "render_height"], 0, "#333b39", 120, "#59635d"],
-            "fill-extrusion-height": ["coalesce", ["get", "render_height"], ["get", "height"], 7],
-            "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
-            "fill-extrusion-opacity": 0.82,
-          },
-        }, labelLayer?.id);
-      }
       if (!map.getSource("solar-shadow")) {
         map.addSource("solar-shadow", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
         map.addLayer({
           id: "solar-shadow-fill",
           type: "fill",
           source: "solar-shadow",
-          paint: { "fill-color": "#061a2a", "fill-opacity": ["coalesce", ["get", "strength"], 0.4] },
+          paint: { "fill-color": "#07162d", "fill-opacity": ["coalesce", ["get", "strength"], 0.78] },
         });
         map.addLayer({
           id: "solar-shadow-edge",
           type: "line",
           source: "solar-shadow",
-          paint: { "line-color": "#31d7e8", "line-opacity": 0.2, "line-width": 1 },
+          paint: { "line-color": "#55deee", "line-opacity": 0.72, "line-width": 1.25 },
+        });
+      }
+      if (!map.getSource("prototype-buildings")) {
+        map.addSource("prototype-buildings", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({
+          id: "prototype-building-3d",
+          type: "fill-extrusion",
+          source: "prototype-buildings",
+          paint: {
+            "fill-extrusion-color": ["interpolate", ["linear"], ["get", "height"], 15, "#58615e", 95, "#99a39e"],
+            "fill-extrusion-height": ["get", "height"],
+            "fill-extrusion-base": 0,
+            "fill-extrusion-opacity": 0.94,
+          },
         });
       }
       if (!map.getSource("selected-point")) {
@@ -248,7 +248,7 @@ export default function SunMapExperience() {
           ))}
           {!filtered.length && <p className="empty">일치하는 강남구 프리셋이 없습니다.</p>}
         </div>
-        <div className="panel-foot"><Icon name="layers" /> <span>실제 지도 맥락</span><b>활성</b></div>
+        <div className="panel-foot"><Icon name="layers" /> <span>건물·지면 그림자</span><b>활성</b></div>
       </aside>
 
       <section className="solar-readout glass-panel" aria-label="태양 위치 정보">
@@ -274,7 +274,7 @@ export default function SunMapExperience() {
           <div><span>낮 길이</span><strong>{daylight.toFixed(1)}<small>시간</small></strong></div>
         </div>
         <div className="sun-times"><span>일출 <b>{formatKstTime(sunTimes.sunrise)}</b></span><i /><span>일몰 <b>{formatKstTime(sunTimes.sunset)}</b></span></div>
-        <div className="disclosure"><Icon name="info" /><p><strong>프로토타입 추정치</strong> 태양 위치는 좌표·시각 기반 천문 계산이며, 그림자는 건물별 정밀 분석이 아닌 시각적 시뮬레이션입니다.</p></div>
+        <div className="disclosure"><Icon name="info" /><p><strong>프로토타입 추정치</strong> 태양 위치는 천문 계산, 회색 건물과 남색 지면 그림자는 제품 검증용 가상 매스입니다.</p></div>
         <p className="source">지도: © OpenStreetMap 기여자 · 태양 계산: SunCalc</p>
       </aside>
 

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { dateAtKst, daylightHours, formatMinutes, getSolarPosition, seasonalDate } from "../src/lib/solar";
-import { createShadowFan } from "../src/lib/shadows";
+import { createBuildingShadows, createPrototypeBuildings, createShadowFan } from "../src/lib/shadows";
 
 test("KST date conversion and time formatting are deterministic", () => {
   assert.equal(dateAtKst("2026-06-21", 720).toISOString(), "2026-06-21T03:00:00.000Z");
@@ -21,6 +21,20 @@ test("shadow fan is hidden at night and points away during day", () => {
   const fan = createShadowFan([127.02, 37.49], 180, 45);
   assert.equal(fan.features.length, 5);
   assert.equal(fan.features[0].geometry.type, "Polygon");
+});
+
+test("prototype buildings cast one visible ground shadow each and react to sun angle", () => {
+  const buildings = createPrototypeBuildings([127.02761, 37.49794]);
+  assert.ok(buildings.features.length >= 12);
+  assert.ok(buildings.features.every((feature) => Number(feature.properties?.height) >= 15));
+
+  const noon = createBuildingShadows(buildings, 180, 55);
+  const evening = createBuildingShadows(buildings, 260, 12);
+  assert.equal(noon.features.length, buildings.features.length);
+  assert.equal(evening.features.length, buildings.features.length);
+  assert.notDeepEqual(noon.features[0].geometry.coordinates, evening.features[0].geometry.coordinates);
+  assert.ok(Number(evening.features[0].properties?.shadowLength) > Number(noon.features[0].properties?.shadowLength));
+  assert.equal(createBuildingShadows(buildings, 180, -2).features.length, 0);
 });
 
 test("calendar helpers preserve expected values", () => {
