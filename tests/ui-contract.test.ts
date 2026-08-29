@@ -125,3 +125,13 @@ test("the live map exposes its active building source and rendered feature count
   assert.match(mapCanvas, /dataset\.buildingSource/);
   assert.match(mapCanvas, /dataset\.buildingCount/);
 });
+
+test("night mode darkens the base map while keeping the daytime map clear", () => {
+  assert.match(mapCanvas, /id:\s*"night-map-tint"/);
+  assert.match(mapCanvas, /coordinates:\s*\[\[\[123, 31\]/);
+  assert.match(mapCanvas, /"fill-color":\s*"#081426"/i);
+  assert.match(mapCanvas, /solar\.isDaylight\s*\?\s*0\s*:\s*0\.58/);
+  assert.match(mapCanvas, /setPaintProperty\("night-map-tint",\s*"fill-opacity"/);
+  assert.match(css, /\.is-night>\.map \.maplibregl-canvas\s*\{[^}]*filter:brightness\(\.38\)/);
+  assert.match(css, /\.is-day>\.map \.maplibregl-canvas\s*\{[^}]*filter:none/);
+});

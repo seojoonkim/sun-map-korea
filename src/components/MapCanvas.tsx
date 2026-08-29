@@ -16,9 +16,21 @@ const SEOUL_CENTER: [number, number] = [127.02761, 37.49794];
 const KOREA_BOUNDS: [[number, number], [number, number]] = [[124.0, 32.2], [132.2, 39.2]];
 const EMPTY_BUILDINGS: FeatureCollection<Polygon> = { type: "FeatureCollection", features: [] };
 const EMPTY_SOURCE: FeatureCollection<Polygon | MultiPolygon> = { type: "FeatureCollection", features: [] };
+const NIGHT_TINT: FeatureCollection<Polygon> = {
+  type: "FeatureCollection",
+  features: [{
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "Polygon",
+      coordinates: [[[123, 31], [134, 31], [134, 41], [123, 41], [123, 31]]],
+    },
+  }],
+};
 const BASE_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const FALLBACK_LAYER = "fallback-building-3d";
 const SEOUL_LAYER = "seoul-building-3d";
+const NIGHT_TINT_LAYER = "night-map-tint";
 
 type MapCanvasProps = {
   solar: SolarPosition;
@@ -191,6 +203,16 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       });
       map.addSource("seoul-buildings", { type: "geojson", data: EMPTY_SOURCE });
       map.addSource("solar-shadow", { type: "geojson", data: EMPTY_BUILDINGS });
+      map.addSource("night-map-tint", { type: "geojson", data: NIGHT_TINT });
+      map.addLayer({
+        id: "night-map-tint",
+        type: "fill",
+        source: "night-map-tint",
+        paint: {
+          "fill-color": "#081426",
+          "fill-opacity": solarRef.current.isDaylight ? 0 : 0.58,
+        },
+      });
       map.addLayer({
         id: "solar-shadow-fill",
         type: "fill",
@@ -250,7 +272,14 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
     if (map) applyCameraRequest(map, cameraRequest);
   }, [applyCameraRequest, cameraRequest]);
 
-  useEffect(() => scheduleShadowUpdate(35), [solar, scheduleShadowUpdate]);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map?.getLayer(NIGHT_TINT_LAYER)) {
+      map.setPaintProperty("night-map-tint", "fill-opacity", solar.isDaylight ? 0 : 0.58);
+    }
+    if (mapContainer.current) mapContainer.current.dataset.theme = solar.isDaylight ? "day" : "night";
+    scheduleShadowUpdate(35);
+  }, [solar, scheduleShadowUpdate]);
 
   return <div ref={mapContainer} className="map" aria-label="대한민국 인터랙티브 일조 지도" />;
 }
