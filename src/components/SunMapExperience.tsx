@@ -37,10 +37,12 @@ function Icon({ name }: { name: "play" | "pause" | "sun" }) {
 }
 
 export default function SunMapExperience() {
-  const [date, setDate] = useState(todayInSeoul);
+  const [date, setDate] = useState("2000-01-01");
   const [minutes, setMinutes] = useState(12 * 60 + 30);
   const [playing, setPlaying] = useState(false);
   const [coordinates, setCoordinates] = useState<[number, number]>(GANGNAM_CENTER);
+
+  useEffect(() => setDate(todayInSeoul()), []);
 
   const currentDate = useMemo(() => dateAtKst(date, minutes), [date, minutes]);
   const solar = useMemo(

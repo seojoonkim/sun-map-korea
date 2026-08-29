@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const component = readFileSync(join(process.cwd(), "src/components/SunMapExperience.tsx"), "utf8");
+const mapCanvas = readFileSync(join(process.cwd(), "src/components/MapCanvas.tsx"), "utf8");
 const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
 
 test("map-first experience removes landmark picking surfaces", () => {
@@ -22,8 +23,14 @@ test("mobile rendering disables expensive decorative compositing", () => {
   assert.match(mobile, /\.map-grid\s*\{[^}]*display:none/);
   assert.match(mobile, /\.glass-panel\s*\{[^}]*backdrop-filter:none/);
 });
-
 test("heavy map engine is deferred behind a dynamic map canvas", () => {
-  assert.doesNotMatch(component, /from "maplibre-gl"/);
-  assert.match(component, /dynamic\(\(\) => import\("\.\/MapCanvas"\)/);
+  assert.match(component, /dynamic\(\(\)\s*=>\s*import\("\.\/MapCanvas"\)/);
+  assert.doesNotMatch(component, /from\s+["']maplibre-gl["']/);
+  assert.match(mapCanvas, /from\s+["']maplibre-gl["']/);
+});
+
+test("current Seoul date is applied after hydration, not during static render", () => {
+  assert.doesNotMatch(component, /useState\(todayInSeoul\)/);
+  assert.match(component, /useState\("2000-01-01"\)/);
+  assert.match(component, /useEffect\(\(\)\s*=>\s*setDate\(todayInSeoul\(\)\),\s*\[\]\)/);
 });
