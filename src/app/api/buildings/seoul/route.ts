@@ -6,8 +6,10 @@ export const revalidate = 86_400;
 
 const SMAP_PROXY = "https://smap.seoul.go.kr/imageProxy.do";
 const LAYER = "seoul:footprint_w_minmax";
-const MAX_FEATURES = 5_000;
+const MAX_FEATURES = 2_000;
 const MAX_SPAN = 0.25;
+const TARGET_CELL_SPAN = 0.012;
+const MAX_GRID_AXIS = 6;
 
 type Bounds = [number, number, number, number];
 type SmapFeature = Feature<Polygon | MultiPolygon, Record<string, unknown>>;
@@ -55,14 +57,22 @@ async function fetchCell(bounds: Bounds, signal: AbortSignal) {
 }
 
 function splitBounds([west, south, east, north]: Bounds): Bounds[] {
-  const middleLongitude = (west + east) / 2;
-  const middleLatitude = (south + north) / 2;
-  return [
-    [west, south, middleLongitude, middleLatitude],
-    [middleLongitude, south, east, middleLatitude],
-    [west, middleLatitude, middleLongitude, north],
-    [middleLongitude, middleLatitude, east, north],
-  ];
+  const columns = Math.min(MAX_GRID_AXIS, Math.max(1, Math.ceil((east - west) / TARGET_CELL_SPAN)));
+  const rows = Math.min(MAX_GRID_AXIS, Math.max(1, Math.ceil((north - south) / TARGET_CELL_SPAN)));
+  const longitudeStep = (east - west) / columns;
+  const latitudeStep = (north - south) / rows;
+  const cells: Bounds[] = [];
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      cells.push([
+        west + longitudeStep * column,
+        south + latitudeStep * row,
+        west + longitudeStep * (column + 1),
+        south + latitudeStep * (row + 1),
+      ]);
+    }
+  }
+  return cells;
 }
 
 export async function GET(request: NextRequest) {
@@ -72,10 +82,8 @@ export async function GET(request: NextRequest) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12_000);
   try {
-    let features = await fetchCell(bounds, controller.signal);
-    if (features.length >= MAX_FEATURES) {
-      features = (await Promise.all(splitBounds(bounds).map((cell) => fetchCell(cell, controller.signal)))).flat();
-    }
+    const cells = splitBounds(bounds);
+    const features = (await Promise.all(cells.map((cell) => fetchCell(cell, controller.signal)))).flat();
     const unique = Array.from(new Map(features.map((feature) => [String(feature.id ?? feature.properties?.id), feature])).values());
     return NextResponse.json(
       { type: "FeatureCollection", features: unique, source: "Seoul S-MAP 2025" },

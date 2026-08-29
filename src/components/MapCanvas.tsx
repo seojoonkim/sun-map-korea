@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import maplibregl, { GeoJSONSource, Map as MapLibreMap, type ExpressionSpecification } from "maplibre-gl";
-import { Protocol } from "pmtiles";
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { SolarPosition } from "@/lib/solar";
 import {
-  OVERTURE_BUILDINGS_URL,
+  NATIONWIDE_BUILDINGS_URL,
   buildSeoulBuildingRequest,
   isPotentialSeoulViewport,
   normalizeSeoulBuildings,
@@ -20,14 +19,6 @@ const EMPTY_SOURCE: FeatureCollection<Polygon | MultiPolygon> = { type: "Feature
 const BASE_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const FALLBACK_LAYER = "fallback-building-3d";
 const SEOUL_LAYER = "seoul-building-3d";
-
-let pmtilesProtocolRegistered = false;
-function registerPmtilesProtocol() {
-  if (pmtilesProtocolRegistered) return;
-  const protocol = new Protocol();
-  maplibregl.addProtocol("pmtiles", protocol.tile);
-  pmtilesProtocolRegistered = true;
-}
 
 type MapCanvasProps = {
   solar: SolarPosition;
@@ -91,7 +82,6 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
 
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
-    registerPmtilesProtocol();
     const compactMap = window.innerWidth <= 760;
     const map = new maplibregl.Map({
       container: mapContainer.current,
@@ -124,7 +114,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       ).filter((feature) => feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon");
       buildingsRef.current = normalizeBuildingFeatures(visibleFeatures as unknown as RenderedBuilding[]);
       if (mapContainer.current) {
-        mapContainer.current.dataset.buildingSource = seoulPrecisionActiveRef.current ? "smap-2025" : "overture";
+        mapContainer.current.dataset.buildingSource = seoulPrecisionActiveRef.current ? "smap-2025" : "openfreemap-osm";
         mapContainer.current.dataset.buildingCount = String(buildingsRef.current.features.length);
       }
       scheduleShadowUpdate(compactMap ? 140 : 50);
@@ -191,16 +181,13 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       }
       const fallbackHeight: ExpressionSpecification = [
         "case",
-        [">", ["coalesce", ["get", "height"], 0], 0],
-        ["get", "height"],
-        [">", ["coalesce", ["get", "num_floors"], 0], 0],
-        ["*", ["get", "num_floors"], 3],
+        [">", ["coalesce", ["get", "render_height"], 0], 0],
+        ["get", "render_height"],
         DEFAULT_BUILDING_HEIGHT,
       ];
       map.addSource("fallback-buildings", {
         type: "vector",
-        url: OVERTURE_BUILDINGS_URL,
-        attribution: '<a href="https://docs.overturemaps.org/attribution" target="_blank">© Overture Maps Foundation</a>',
+        url: NATIONWIDE_BUILDINGS_URL,
       });
       map.addSource("seoul-buildings", { type: "geojson", data: EMPTY_SOURCE });
       map.addSource("solar-shadow", { type: "geojson", data: EMPTY_BUILDINGS });
@@ -219,11 +206,11 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
         source: "fallback-buildings",
         "source-layer": "building",
         minzoom: 13,
-        filter: ["!", ["==", ["get", "is_underground"], true]],
+        filter: ["!", ["==", ["get", "hide_3d"], true]],
         paint: {
           "fill-extrusion-color": ["interpolate", ["linear"], fallbackHeight, 4, "#ffb9d7", 30, "#92ddff", 100, "#fff0a6"],
           "fill-extrusion-height": fallbackHeight,
-          "fill-extrusion-base": ["coalesce", ["get", "min_height"], 0],
+          "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
           "fill-extrusion-opacity": compactMap ? 0.88 : 0.92,
           "fill-extrusion-vertical-gradient": !compactMap,
         },

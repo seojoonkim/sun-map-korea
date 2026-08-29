@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Feature, MultiPolygon, Polygon } from "geojson";
 import {
-  OVERTURE_BUILDINGS_URL,
+  NATIONWIDE_BUILDINGS_URL,
   buildSeoulBuildingRequest,
   isPotentialSeoulViewport,
   normalizeSeoulBuildings,
@@ -19,10 +19,10 @@ const polygon: Polygon = {
   ]],
 };
 
-test("uses the current public Overture buildings archive as the nationwide fallback", () => {
+test("uses browser-accessible OpenFreeMap building tiles as the nationwide fallback", () => {
   assert.equal(
-    OVERTURE_BUILDINGS_URL,
-    "pmtiles://https://tiles.overturemaps.org/2026-08-19.0/buildings.pmtiles",
+    NATIONWIDE_BUILDINGS_URL,
+    "https://tiles.openfreemap.org/planet",
   );
 });
 

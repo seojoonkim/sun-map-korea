@@ -69,9 +69,9 @@ test("the visual system is pop and the sun identity is friendly", () => {
   assert.match(appIcon, /#ff6fae/i);
 });
 
-test("all ordinary nationwide Overture footprints remain eligible for 3D rendering", () => {
+test("all ordinary nationwide OpenFreeMap footprints remain eligible for 3D rendering", () => {
   assert.match(mapCanvas, /"source-layer": "building"/);
-  assert.match(mapCanvas, /is_underground/);
+  assert.match(mapCanvas, /hide_3d/);
   assert.match(mapCanvas, /DEFAULT_BUILDING_HEIGHT/);
   assert.match(mapCanvas, /"fill-extrusion-height": fallbackHeight/);
 });
@@ -115,9 +115,9 @@ test("date label remains on one line in the mobile layout", () => {
 
 test("height copy distinguishes Seoul precision data from the nationwide fallback", () => {
   assert.match(component, /서울 S-MAP 2025 정밀 높이/);
-  assert.match(component, /전국 Overture 실제 높이·층수 우선/);
+  assert.match(component, /전국 OpenFreeMap\/OSM 높이 우선/);
   assert.match(component, /미입력은 9m 추정/);
-  assert.match(mapCanvas, /OVERTURE_BUILDINGS_URL/);
+  assert.match(mapCanvas, /NATIONWIDE_BUILDINGS_URL/);
   assert.match(mapCanvas, /seoul-building-3d/);
 });
 

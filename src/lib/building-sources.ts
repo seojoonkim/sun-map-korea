@@ -1,7 +1,6 @@
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 
-export const OVERTURE_BUILDINGS_URL =
-  "pmtiles://https://tiles.overturemaps.org/2026-08-19.0/buildings.pmtiles";
+export const NATIONWIDE_BUILDINGS_URL = "https://tiles.openfreemap.org/planet";
 
 export const SEOUL_PRECISION_MIN_ZOOM = 13.5;
 const SEOUL_BOUNDS = {
