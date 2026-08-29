@@ -10,33 +10,7 @@ const SEOUL_CENTER: [number, number] = [127.02761, 37.49794];
 const KOREA_BOUNDS: [[number, number], [number, number]] = [[124.0, 32.2], [132.2, 39.2]];
 const EMPTY_BUILDINGS: FeatureCollection<Polygon> = { type: "FeatureCollection", features: [] };
 
-const RASTER_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    carto: {
-      type: "raster",
-      tiles: [
-        "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-        "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-        "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-      ],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors · © CARTO",
-    },
-  },
-  layers: [{
-    id: "osm-base",
-    type: "raster",
-    source: "carto",
-    paint: {
-      "raster-brightness-min": 0.18,
-      "raster-brightness-max": 0.92,
-      "raster-contrast": -0.08,
-      "raster-saturation": -0.22,
-      "raster-fade-duration": 0,
-    },
-  }],
-};
+const BASE_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
 type MapCanvasProps = {
   solar: SolarPosition;
@@ -94,7 +68,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
     const compactMap = window.innerWidth <= 760;
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: RASTER_STYLE,
+      style: BASE_MAP_STYLE,
       center: SEOUL_CENTER,
       zoom: compactMap ? 14.7 : 15.35,
       pitch: compactMap ? 38 : 53,

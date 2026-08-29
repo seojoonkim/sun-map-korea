@@ -44,6 +44,8 @@ test("nationwide exploration replaces the Gangnam-locked map", () => {
   assert.match(mapCanvas, /KOREA_BOUNDS/);
   assert.doesNotMatch(mapCanvas, /\[\[126\.965, 37\.455\], \[127\.115, 37\.565\]\]/);
   assert.match(mapCanvas, /대한민국 인터랙티브 일조 지도/);
+  assert.match(mapCanvas, /tiles\.openfreemap\.org\/styles\/liberty/);
+  assert.doesNotMatch(mapCanvas, /cartocdn|API KEY REQUIRED/i);
 });
 
 test("nationwide search is explicit, accessible, and keeps the map marker-free", () => {
