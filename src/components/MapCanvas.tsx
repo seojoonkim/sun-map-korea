@@ -6,7 +6,8 @@ import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { SolarPosition } from "@/lib/solar";
 import { createBuildingShadows, normalizeBuildingFeatures } from "@/lib/shadows";
 
-const GANGNAM_CENTER: [number, number] = [127.02761, 37.49794];
+const SEOUL_CENTER: [number, number] = [127.02761, 37.49794];
+const KOREA_BOUNDS: [[number, number], [number, number]] = [[124.0, 32.2], [132.2, 39.2]];
 const EMPTY_BUILDINGS: FeatureCollection<Polygon> = { type: "FeatureCollection", features: [] };
 
 const RASTER_STYLE: maplibregl.StyleSpecification = {
@@ -14,9 +15,13 @@ const RASTER_STYLE: maplibregl.StyleSpecification = {
   sources: {
     carto: {
       type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tiles: [
+        "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+        "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+        "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+      ],
       tileSize: 256,
-      attribution: "© OpenStreetMap contributors",
+      attribution: "© OpenStreetMap contributors · © CARTO",
     },
   },
   layers: [{
@@ -24,9 +29,10 @@ const RASTER_STYLE: maplibregl.StyleSpecification = {
     type: "raster",
     source: "carto",
     paint: {
-      "raster-brightness-max": 0.62,
-      "raster-contrast": 0.18,
-      "raster-saturation": -0.55,
+      "raster-brightness-min": 0.18,
+      "raster-brightness-max": 0.92,
+      "raster-contrast": -0.08,
+      "raster-saturation": -0.22,
       "raster-fade-duration": 0,
     },
   }],
@@ -35,15 +41,41 @@ const RASTER_STYLE: maplibregl.StyleSpecification = {
 type MapCanvasProps = {
   solar: SolarPosition;
   onCenterChange: (coordinates: [number, number]) => void;
+  cameraRequest: {
+    id: number;
+    mode: "place" | "country";
+    center?: [number, number];
+  } | null;
 };
 
-export default function MapCanvas({ solar, onCenterChange }: MapCanvasProps) {
+export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapCanvasProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const buildingsRef = useRef<FeatureCollection<Polygon>>(EMPTY_BUILDINGS);
   const shadowTimerRef = useRef<number | null>(null);
   const solarRef = useRef(solar);
+  const cameraRequestRef = useRef(cameraRequest);
   solarRef.current = solar;
+  cameraRequestRef.current = cameraRequest;
+
+  const applyCameraRequest = useCallback((map: MapLibreMap, request: MapCanvasProps["cameraRequest"]) => {
+    if (!request) return;
+    const compactMap = window.innerWidth <= 760;
+    if (request.mode === "country") {
+      const camera = map.cameraForBounds(KOREA_BOUNDS, { padding: compactMap ? 28 : 82 });
+      map.easeTo({ ...camera, pitch: 0, bearing: 0, duration: 900 });
+      return;
+    }
+    if (request.center) {
+      map.flyTo({
+        center: request.center,
+        zoom: compactMap ? 14.2 : 15.1,
+        pitch: compactMap ? 38 : 50,
+        bearing: -12,
+        duration: 1000,
+      });
+    }
+  }, []);
 
   const scheduleShadowUpdate = useCallback((delay = 60) => {
     if (shadowTimerRef.current !== null) window.clearTimeout(shadowTimerRef.current);
@@ -63,13 +95,13 @@ export default function MapCanvas({ solar, onCenterChange }: MapCanvasProps) {
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: RASTER_STYLE,
-      center: GANGNAM_CENTER,
+      center: SEOUL_CENTER,
       zoom: compactMap ? 14.7 : 15.35,
       pitch: compactMap ? 38 : 53,
       bearing: compactMap ? -10 : -18,
-      minZoom: 12.2,
+      minZoom: 5.5,
       maxZoom: 18,
-      maxBounds: [[126.965, 37.455], [127.115, 37.565]],
+      maxBounds: KOREA_BOUNDS,
       attributionControl: false,
       fadeDuration: 0,
       refreshExpiredTiles: false,
@@ -104,8 +136,8 @@ export default function MapCanvas({ solar, onCenterChange }: MapCanvasProps) {
         type: "fill",
         source: "solar-shadow",
         paint: {
-          "fill-color": "#263348",
-          "fill-opacity": ["step", ["zoom"], 0.24, 15.1, ["coalesce", ["get", "strength"], 0.62]],
+          "fill-color": "#7967d8",
+          "fill-opacity": ["step", ["zoom"], 0.2, 15.1, ["coalesce", ["get", "strength"], 0.48]],
         },
       });
       map.addLayer({
@@ -116,13 +148,14 @@ export default function MapCanvas({ solar, onCenterChange }: MapCanvasProps) {
         minzoom: 13,
         filter: ["!=", ["get", "hide_3d"], true],
         paint: {
-          "fill-extrusion-color": ["interpolate", ["linear"], ["get", "render_height"], 4, "#505b57", 30, "#7e8c86", 100, "#bcc8c2"],
+          "fill-extrusion-color": ["interpolate", ["linear"], ["get", "render_height"], 4, "#ffb9d7", 30, "#92ddff", 100, "#fff0a6"],
           "fill-extrusion-height": ["get", "render_height"],
           "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
           "fill-extrusion-opacity": compactMap ? 0.88 : 0.92,
           "fill-extrusion-vertical-gradient": !compactMap,
         },
       });
+      applyCameraRequest(map, cameraRequestRef.current);
       map.once("idle", refreshMapData);
     });
     map.on("moveend", refreshMapData);
@@ -132,9 +165,14 @@ export default function MapCanvas({ solar, onCenterChange }: MapCanvasProps) {
       map.remove();
       mapRef.current = null;
     };
-  }, [onCenterChange, scheduleShadowUpdate]);
+  }, [applyCameraRequest, onCenterChange, scheduleShadowUpdate]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (map) applyCameraRequest(map, cameraRequest);
+  }, [applyCameraRequest, cameraRequest]);
 
   useEffect(() => scheduleShadowUpdate(35), [solar, scheduleShadowUpdate]);
 
-  return <div ref={mapContainer} className="map" aria-label="강남구 인터랙티브 일조 지도" />;
+  return <div ref={mapContainer} className="map" aria-label="대한민국 인터랙티브 일조 지도" />;
 }

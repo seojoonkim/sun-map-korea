@@ -1,7 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import GeoSearch from "./GeoSearch";
+import type { PlaceResult } from "@/lib/geocode";
+import { reverseKoreaLocation } from "@/lib/geocode";
 import {
   dateAtKst,
   daylightHours,
@@ -12,11 +15,17 @@ import {
   seasonalDate,
 } from "@/lib/solar";
 
-const GANGNAM_CENTER: [number, number] = [127.02761, 37.49794];
+const SEOUL_CENTER: [number, number] = [127.02761, 37.49794];
 const MapCanvas = dynamic(() => import("./MapCanvas"), {
   ssr: false,
-  loading: () => <div className="map map-loading" aria-label="강남구 일조 지도 불러오는 중" />,
+  loading: () => <div className="map map-loading" aria-label="대한민국 일조 지도 불러오는 중" />,
 });
+
+type CameraRequest = {
+  id: number;
+  mode: "place" | "country";
+  center?: [number, number];
+};
 
 function todayInSeoul() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -27,22 +36,61 @@ function todayInSeoul() {
   }).format(new Date());
 }
 
-function Icon({ name }: { name: "play" | "pause" | "sun" }) {
+function Icon({ name }: { name: "play" | "pause" }) {
   const paths = {
     play: <path d="m9 7 8 5-8 5Z"/>,
     pause: <><path d="M9 7v10M15 7v10"/></>,
-    sun: <><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></>,
   };
   return <svg aria-hidden="true" className="icon" viewBox="0 0 24 24">{paths[name]}</svg>;
+}
+
+function SunLogo() {
+  return (
+    <svg className="sun-face" aria-hidden="true" viewBox="0 0 64 64">
+      <g className="sun-rays"><path d="M32 3v7M32 54v7M3 32h7M54 32h7M11.5 11.5l5 5M47.5 47.5l5 5M52.5 11.5l-5 5M16.5 47.5l-5 5" /></g>
+      <circle className="sun-disc" cx="32" cy="32" r="20" />
+      <circle className="sun-cheek" cx="20" cy="37" r="3" />
+      <circle className="sun-cheek" cx="44" cy="37" r="3" />
+      <path className="sun-eye left" d="M21 29c2-3 5-3 7 0" />
+      <path className="sun-eye right" d="M36 29c2-3 5-3 7 0" />
+      <path className="sun-smile" d="M25 38c4 5 10 5 14 0" />
+    </svg>
+  );
 }
 
 export default function SunMapExperience() {
   const [date, setDate] = useState("2000-01-01");
   const [minutes, setMinutes] = useState(12 * 60 + 30);
   const [playing, setPlaying] = useState(false);
-  const [coordinates, setCoordinates] = useState<[number, number]>(GANGNAM_CENTER);
+  const [coordinates, setCoordinates] = useState<[number, number]>(SEOUL_CENTER);
+  const [currentLocation, setCurrentLocation] = useState("서울 · 강남");
+  const [cameraRequest, setCameraRequest] = useState<CameraRequest | null>(null);
+  const localityCache = useRef(new Map<string, string>());
 
   useEffect(() => setDate(todayInSeoul()), []);
+
+  useEffect(() => {
+    const key = `${coordinates[0].toFixed(2)}:${coordinates[1].toFixed(2)}`;
+    const cached = localityCache.current.get(key);
+    if (cached) {
+      setCurrentLocation(cached);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const locality = await reverseKoreaLocation(coordinates, controller.signal);
+        localityCache.current.set(key, locality);
+        setCurrentLocation(locality);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") setCurrentLocation("대한민국");
+      }
+    }, 850);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [coordinates]);
 
   const currentDate = useMemo(() => dateAtKst(date, minutes), [date, minutes]);
   const solar = useMemo(
@@ -69,22 +117,35 @@ export default function SunMapExperience() {
     { label: "동지", value: seasonalDate(year, "winter") },
   ];
 
+  function selectPlace(place: PlaceResult) {
+    setCurrentLocation(place.label);
+    setCameraRequest({ id: Date.now(), mode: "place", center: place.coordinates });
+  }
+
+  function viewKorea() {
+    setCurrentLocation("대한민국 전역");
+    setCameraRequest({ id: Date.now(), mode: "country" });
+  }
+
   return (
     <main className={`app ${solar.isDaylight ? "is-day" : "is-night"}`}>
-      <MapCanvas solar={solar} onCenterChange={setCoordinates} />
+      <MapCanvas solar={solar} onCenterChange={setCoordinates} cameraRequest={cameraRequest} />
       <div className="map-vignette" />
       <div className="map-grid" />
+      <div className="map-center-reticle" aria-hidden="true"><span /><span /></div>
 
       <header className="topbar">
         <div className="brand-block">
-          <div className="brand-mark"><Icon name="sun" /></div>
+          <div className="brand-mark"><SunLogo /></div>
           <div><p>SUN MAP</p><strong>KOREA</strong></div>
         </div>
-        <div className="district-badge"><span /> 서울특별시 · 강남구</div>
-        <div className="prototype-badge">LIVE OSM · 3D</div>
+        <GeoSearch onSelect={selectPlace} onViewKorea={viewKorea} />
+        <div className="district-badge" aria-live="polite"><span /> {currentLocation}</div>
+        <div className="prototype-badge">NATIONWIDE · LIVE 3D</div>
       </header>
 
       <section className="solar-readout glass-panel" aria-label="태양 위치 정보">
+        <div className="mobile-locality">{currentLocation}</div>
         <div className="readout-values">
           <div><span>방위각</span><strong>{solar.azimuth.toFixed(1)}°</strong></div>
           <div><span>고도각</span><strong className="accent">{solar.elevation.toFixed(1)}°</strong></div>
@@ -94,14 +155,14 @@ export default function SunMapExperience() {
 
       <aside className="summary-panel glass-panel">
         <div className="summary-title">
-          <div><span className="eyebrow">MAP CENTER SOLAR REPORT</span><h1>지도 중심</h1></div>
+          <div><span className="eyebrow">지도 중심 · 햇빛 리포트</span><h1>{currentLocation}</h1></div>
           <span className="center-coordinates">{coordinates[1].toFixed(3)}<br/>{coordinates[0].toFixed(3)}</span>
         </div>
         <div className="summary-metrics">
           <div><span>일조 가능</span><strong>{daylight.toFixed(1)}<small>시간</small></strong></div>
           <div><span>일출 / 일몰</span><strong>{formatKstTime(sunTimes.sunrise)}<small> / {formatKstTime(sunTimes.sunset)}</small></strong></div>
         </div>
-        <p className="source">화면 중앙 좌표 기준 · 실제 OSM 건물 footprint/높이</p>
+        <p className="source"><strong>높이 데이터</strong> OSM 입력·층수 기반 높이만 반영 · 정밀 측량값이 아니며 누락 건물은 그림자에서 제외</p>
       </aside>
 
       <section className="timeline glass-panel" aria-label="날짜와 시간 설정">
