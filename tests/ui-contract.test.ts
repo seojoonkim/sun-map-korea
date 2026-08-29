@@ -126,6 +126,11 @@ test("the live map exposes its active building source and rendered feature count
   assert.match(mapCanvas, /dataset\.buildingCount/);
 });
 
+test("panning reveals nationwide buildings while the next Seoul precision viewport loads", () => {
+  assert.match(mapCanvas, /map\.on\("movestart",\s*\(\)\s*=>\s*\{[\s\S]*?precisionAbortRef\.current\?\.abort\(\);[\s\S]*?precisionRequestRef\.current \+= 1;[\s\S]*?showFallback\(\);[\s\S]*?\}\)/);
+  assert.match(mapCanvas, /map\.on\("moveend",\s*\(\)\s*=>\s*void updatePrecisionBuildings\(\)\)/);
+});
+
 test("night mode darkens the base map while keeping the daytime map clear", () => {
   assert.match(mapCanvas, /id:\s*"night-map-tint"/);
   assert.match(mapCanvas, /coordinates:\s*\[\[\[123, 31\]/);
