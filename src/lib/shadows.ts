@@ -1,4 +1,4 @@
-import type { Feature, FeatureCollection, Polygon } from "geojson";
+import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 
 const EARTH_RADIUS = 6_371_000;
 
@@ -29,10 +29,7 @@ export function createShadowFan(center: [number, number], sunAzimuth: number, el
   return { type: "FeatureCollection", features };
 }
 
-function pointFromMeters(center: [number, number], east: number, north: number): [number, number] {
-  const latRadians = center[1] * Math.PI / 180;
-  return [center[0] + east / (111_320 * Math.cos(latRadians)), center[1] + north / 110_540];
-}
+type RawBuildingFeature = Pick<Feature<Polygon | MultiPolygon>, "geometry" | "properties"> & { id?: string | number };
 
 function convexHull(points: [number, number][]): [number, number][] {
   const sorted = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
@@ -52,27 +49,44 @@ function convexHull(points: [number, number][]): [number, number][] {
   return [...lower.slice(0, -1), ...upper.slice(0, -1)];
 }
 
-export function createPrototypeBuildings(center: [number, number]): FeatureCollection<Polygon> {
-  const specs = [
-    [-190, -105, 58, 34, 48, -12], [-105, -135, 42, 60, 31, 8], [-25, -120, 64, 35, 76, -8],
-    [80, -130, 48, 54, 42, 14], [175, -90, 72, 38, 64, -5], [-175, -5, 44, 72, 27, 10],
-    [-85, -20, 65, 45, 88, -14], [35, -10, 46, 74, 52, 6], [145, 5, 75, 42, 36, -9],
-    [-165, 100, 62, 38, 57, 12], [-70, 105, 45, 65, 34, -6], [25, 115, 70, 40, 92, 9],
-    [125, 105, 42, 55, 46, -12], [-115, 195, 76, 38, 39, 5], [0, 200, 48, 70, 67, -8],
-    [120, 195, 68, 40, 29, 11],
-  ] as const;
-  const features: Feature<Polygon>[] = specs.map(([east, north, width, depth, height, rotation], index) => {
-    const angle = rotation * Math.PI / 180;
-    const corners: [number, number][] = [[-width / 2, -depth / 2], [width / 2, -depth / 2], [width / 2, depth / 2], [-width / 2, depth / 2]];
-    const ring = corners.map(([x, y]) => pointFromMeters(
-      center,
-      east + x * Math.cos(angle) - y * Math.sin(angle),
-      north + x * Math.sin(angle) + y * Math.cos(angle),
-    ));
-    ring.push(ring[0]);
-    return { type: "Feature", properties: { id: `prototype-${index + 1}`, height }, geometry: { type: "Polygon", coordinates: [ring] } };
-  });
-  return { type: "FeatureCollection", features };
+/**
+ * Converts the currently loaded OpenMapTiles building features to one polygon per
+ * real OSM footprint. Features without a rendered height are intentionally
+ * omitted instead of inventing prototype geometry or dimensions.
+ */
+export function normalizeBuildingFeatures(features: readonly RawBuildingFeature[]): FeatureCollection<Polygon> {
+  const normalized: Feature<Polygon>[] = [];
+  const seen = new Set<string>();
+
+  for (const feature of features) {
+    if (feature.properties?.hide_3d === true) continue;
+    const height = Number(feature.properties?.render_height ?? feature.properties?.height);
+    if (!Number.isFinite(height) || height <= 0) continue;
+    const rawMinHeight = Number(feature.properties?.render_min_height ?? feature.properties?.minHeight ?? 0);
+    const minHeight = Number.isFinite(rawMinHeight) && rawMinHeight >= 0 ? Math.min(rawMinHeight, height) : 0;
+    const polygons = feature.geometry.type === "Polygon"
+      ? [feature.geometry.coordinates]
+      : feature.geometry.coordinates;
+
+    polygons.forEach((coordinates, partIndex) => {
+      if (!coordinates[0] || coordinates[0].length < 4) return;
+      const fingerprint = `${height}:${JSON.stringify(coordinates)}`;
+      if (seen.has(fingerprint)) return;
+      seen.add(fingerprint);
+      normalized.push({
+        type: "Feature",
+        properties: {
+          id: feature.id == null ? `osm-${normalized.length + 1}` : `${feature.id}-${partIndex}`,
+          height,
+          minHeight,
+          source: "OpenStreetMap",
+        },
+        geometry: { type: "Polygon", coordinates },
+      });
+    });
+  }
+
+  return { type: "FeatureCollection", features: normalized };
 }
 
 export function createBuildingShadows(

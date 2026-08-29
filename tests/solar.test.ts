@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { dateAtKst, daylightHours, formatMinutes, getSolarPosition, seasonalDate } from "../src/lib/solar";
-import { createBuildingShadows, createPrototypeBuildings, createShadowFan } from "../src/lib/shadows";
+import { createBuildingShadows, normalizeBuildingFeatures, createShadowFan } from "../src/lib/shadows";
 
 test("KST date conversion and time formatting are deterministic", () => {
   assert.equal(dateAtKst("2026-06-21", 720).toISOString(), "2026-06-21T03:00:00.000Z");
@@ -23,10 +23,34 @@ test("shadow fan is hidden at night and points away during day", () => {
   assert.equal(fan.features[0].geometry.type, "Polygon");
 });
 
-test("prototype buildings cast one visible ground shadow each and react to sun angle", () => {
-  const buildings = createPrototypeBuildings([127.02761, 37.49794]);
-  assert.ok(buildings.features.length >= 12);
-  assert.ok(buildings.features.every((feature) => Number(feature.properties?.height) >= 15));
+test("OSM building features preserve real footprints and rendered heights for shadows", () => {
+  const raw = [
+    {
+      type: "Feature" as const,
+      properties: { render_height: 42.5, render_min_height: 3 },
+      geometry: { type: "Polygon" as const, coordinates: [[[127, 37], [127.001, 37], [127.001, 37.001], [127, 37.001], [127, 37]]] },
+    },
+    {
+      type: "Feature" as const,
+      properties: { render_height: 18 },
+      geometry: { type: "MultiPolygon" as const, coordinates: [
+        [[[127.002, 37], [127.003, 37], [127.003, 37.001], [127.002, 37.001], [127.002, 37]]],
+        [[[127.004, 37], [127.005, 37], [127.005, 37.001], [127.004, 37.001], [127.004, 37]]],
+      ] },
+    },
+    {
+      type: "Feature" as const,
+      properties: {},
+      geometry: { type: "Polygon" as const, coordinates: [[[127.01, 37], [127.011, 37], [127.011, 37.001], [127.01, 37]]] },
+    },
+  ];
+
+  const buildings = normalizeBuildingFeatures(raw);
+  assert.equal(buildings.features.length, 3);
+  assert.equal(buildings.features[0].properties?.height, 42.5);
+  assert.equal(buildings.features[0].properties?.minHeight, 3);
+  assert.deepEqual(buildings.features[0].geometry.coordinates, raw[0].geometry.coordinates);
+  assert.ok(buildings.features.every((feature) => Number(feature.properties?.height) > 0));
 
   const noon = createBuildingShadows(buildings, 180, 55);
   const evening = createBuildingShadows(buildings, 260, 12);

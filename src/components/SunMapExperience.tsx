@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import maplibregl, { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
+import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import { LANDMARKS } from "@/data/landmarks";
-import { createBuildingShadows, createPrototypeBuildings } from "@/lib/shadows";
+import { createBuildingShadows, normalizeBuildingFeatures } from "@/lib/shadows";
 import {
   dateAtKst,
   daylightHours,
@@ -68,6 +69,7 @@ export default function SunMapExperience() {
   const [playing, setPlaying] = useState(false);
   const [query, setQuery] = useState("");
   const [mapReady, setMapReady] = useState(false);
+  const [buildings, setBuildings] = useState<FeatureCollection<Polygon>>({ type: "FeatureCollection", features: [] });
   const selected = LANDMARKS.find((item) => item.id === selectedId) ?? LANDMARKS[0];
 
   const currentDate = useMemo(() => dateAtKst(date, minutes), [date, minutes]);
@@ -87,28 +89,26 @@ export default function SunMapExperience() {
   const updateMapLayers = useCallback(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
-    const buildings = createPrototypeBuildings(selected.coordinates);
     const shadows = createBuildingShadows(buildings, solar.azimuth, solar.elevation);
     const shadowSource = map.getSource("solar-shadow") as GeoJSONSource | undefined;
     shadowSource?.setData(shadows);
-    const buildingSource = map.getSource("prototype-buildings") as GeoJSONSource | undefined;
-    buildingSource?.setData(buildings);
     const pointSource = map.getSource("selected-point") as GeoJSONSource | undefined;
     pointSource?.setData({
       type: "FeatureCollection",
       features: [{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: selected.coordinates } }],
     });
-  }, [selected, solar]);
+  }, [buildings, selected, solar]);
 
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
+    const compactMap = window.innerWidth <= 760;
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: RASTER_STYLE,
       center: LANDMARKS[0].coordinates,
-      zoom: 15.35,
-      pitch: 53,
-      bearing: -18,
+      zoom: compactMap ? 14.85 : 15.35,
+      pitch: compactMap ? 42 : 53,
+      bearing: compactMap ? -12 : -18,
       minZoom: 12.2,
       maxZoom: 18,
       maxBounds: [[126.965, 37.455], [127.115, 37.565]],
@@ -118,33 +118,50 @@ export default function SunMapExperience() {
     map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "bottom-right");
     map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
 
+    const refreshBuildings = () => {
+      if (!map.getLayer("osm-building-3d")) return;
+      const canvas = map.getCanvas();
+      const visibleFeatures = map.queryRenderedFeatures(
+        [[0, 0], [canvas.clientWidth, canvas.clientHeight]],
+        { layers: ["osm-building-3d"] },
+      ).filter((feature) => feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon");
+      setBuildings(normalizeBuildingFeatures(visibleFeatures as unknown as Array<{
+        id?: string | number;
+        properties: Record<string, unknown> | null;
+        geometry: Polygon | MultiPolygon;
+      }>));
+    };
+
     map.on("style.load", () => {
+      if (!map.getSource("osm-buildings")) {
+        map.addSource("osm-buildings", { type: "vector", url: "https://tiles.openfreemap.org/planet" });
+      }
       if (!map.getSource("solar-shadow")) {
         map.addSource("solar-shadow", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
         map.addLayer({
           id: "solar-shadow-fill",
           type: "fill",
           source: "solar-shadow",
-          paint: { "fill-color": "#07162d", "fill-opacity": ["coalesce", ["get", "strength"], 0.78] },
-        });
-        map.addLayer({
-          id: "solar-shadow-edge",
-          type: "line",
-          source: "solar-shadow",
-          paint: { "line-color": "#55deee", "line-opacity": 0.72, "line-width": 1.25 },
+          paint: {
+            "fill-color": "#263348",
+            "fill-opacity": ["step", ["zoom"], 0.28, 15.1, ["coalesce", ["get", "strength"], 0.68]],
+          },
         });
       }
-      if (!map.getSource("prototype-buildings")) {
-        map.addSource("prototype-buildings", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      if (!map.getLayer("osm-building-3d")) {
         map.addLayer({
-          id: "prototype-building-3d",
+          id: "osm-building-3d",
           type: "fill-extrusion",
-          source: "prototype-buildings",
+          source: "osm-buildings",
+          "source-layer": "building",
+          minzoom: 13,
+          filter: ["!=", ["get", "hide_3d"], true],
           paint: {
-            "fill-extrusion-color": ["interpolate", ["linear"], ["get", "height"], 15, "#58615e", 95, "#99a39e"],
-            "fill-extrusion-height": ["get", "height"],
-            "fill-extrusion-base": 0,
-            "fill-extrusion-opacity": 0.94,
+            "fill-extrusion-color": ["interpolate", ["linear"], ["get", "render_height"], 4, "#505b57", 30, "#7e8c86", 100, "#bcc8c2"],
+            "fill-extrusion-height": ["get", "render_height"],
+            "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
+            "fill-extrusion-opacity": 0.92,
+            "fill-extrusion-vertical-gradient": true,
           },
         });
       }
@@ -165,7 +182,9 @@ export default function SunMapExperience() {
         });
       }
       setMapReady(true);
+      map.once("idle", refreshBuildings);
     });
+    map.on("moveend", refreshBuildings);
 
     LANDMARKS.forEach((place) => {
       const element = document.createElement("button");
@@ -202,7 +221,8 @@ export default function SunMapExperience() {
     const place = LANDMARKS.find((item) => item.id === id);
     if (!place) return;
     setSelectedId(id);
-    mapRef.current?.flyTo({ center: place.coordinates, zoom: 15.35, pitch: 56, duration: 1100, essential: true });
+    const compactMap = window.innerWidth <= 760;
+    mapRef.current?.flyTo({ center: place.coordinates, zoom: compactMap ? 14.85 : 15.35, pitch: compactMap ? 42 : 56, duration: 1100, essential: true });
   }
 
   const datePresets = [
@@ -225,7 +245,7 @@ export default function SunMapExperience() {
           <div><p>SUN MAP</p><strong>KOREA</strong></div>
         </div>
         <div className="district-badge"><span /> 서울특별시 · 강남구</div>
-        <div className="prototype-badge">PROTOTYPE · 추정치</div>
+        <div className="prototype-badge">LIVE OSM · 3D BUILDINGS</div>
       </header>
 
       <aside className="place-panel glass-panel">
@@ -248,7 +268,7 @@ export default function SunMapExperience() {
           ))}
           {!filtered.length && <p className="empty">일치하는 강남구 프리셋이 없습니다.</p>}
         </div>
-        <div className="panel-foot"><Icon name="layers" /> <span>건물·지면 그림자</span><b>활성</b></div>
+        <div className="panel-foot"><Icon name="layers" /> <span>실건물·지면 그림자</span><b>OSM LIVE</b></div>
       </aside>
 
       <section className="solar-readout glass-panel" aria-label="태양 위치 정보">
@@ -274,8 +294,8 @@ export default function SunMapExperience() {
           <div><span>낮 길이</span><strong>{daylight.toFixed(1)}<small>시간</small></strong></div>
         </div>
         <div className="sun-times"><span>일출 <b>{formatKstTime(sunTimes.sunrise)}</b></span><i /><span>일몰 <b>{formatKstTime(sunTimes.sunset)}</b></span></div>
-        <div className="disclosure"><Icon name="info" /><p><strong>프로토타입 추정치</strong> 태양 위치는 천문 계산, 회색 건물과 남색 지면 그림자는 제품 검증용 가상 매스입니다.</p></div>
-        <p className="source">지도: © OpenStreetMap 기여자 · 태양 계산: SunCalc</p>
+        <div className="disclosure"><Icon name="info" /><p><strong>실제 건물 데이터</strong> 건물 모양과 높이는 OpenStreetMap의 footprint·높이·층수 정보를 OpenMapTiles가 변환한 값입니다. 미등록·변경 건물은 현장과 다를 수 있습니다.</p></div>
+        <p className="source">지도·건물: © OpenStreetMap 기여자 / OpenFreeMap · 태양 계산: SunCalc</p>
       </aside>
 
       <section className="timeline glass-panel">
