@@ -22,6 +22,9 @@ button:focus-visible,input:focus-visible { outline:2px solid var(--ink); outline
 .is-night>.map .maplibregl-canvas { filter:brightness(.38) saturate(.62) contrast(1.08); transition:filter .28s ease; }
 .is-day>.map .maplibregl-canvas { filter:none; transition:filter .28s ease; }
 .map-loading { background:#dfe7eb; }
+.building-loading { position:absolute; z-index:4; left:50%; top:172px; transform:translateX(-50%); display:flex; align-items:center; gap:7px; min-height:32px; padding:6px 11px; border:1px solid var(--line); border-radius:var(--radius-pill); background:var(--panel); box-shadow:var(--shadow-panel); color:var(--ink); font-size:11px; font-weight:600; pointer-events:none; }
+.building-loading span { width:12px; height:12px; border:2px solid var(--line-strong); border-top-color:var(--solar); border-radius:50%; animation:building-loading-spin .7s linear infinite; }
+@keyframes building-loading-spin { to { transform:rotate(360deg); } }
 .map-center-reticle { position:absolute; z-index:2; left:50%; top:50%; width:22px; height:22px; transform:translate(-50%,-50%); pointer-events:none; }
 .map-center-reticle::before { content:""; position:absolute; inset:5px; border:2px solid var(--ink); border-radius:50%; background:rgba(255,255,255,.66); }
 .map-center-reticle span { position:absolute; background:var(--ink); border-radius:var(--radius-pill); }

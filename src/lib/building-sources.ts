@@ -69,6 +69,40 @@ export function prioritySeoulBuildingBounds(center: [number, number]): BuildingB
   ].map((coordinate) => Number(coordinate.toFixed(6))) as BuildingBounds;
 }
 
+type SeoulBuildingLoadPhase = "priority" | "viewport";
+
+type SeoulBuildingPhases<T> = {
+  loadPriority?: () => Promise<T>;
+  loadViewport: () => Promise<T>;
+  paint: (value: T, phase: SeoulBuildingLoadPhase) => boolean;
+};
+
+export async function loadSeoulBuildingPhases<T>({
+  loadPriority,
+  loadViewport,
+  paint,
+}: SeoulBuildingPhases<T>) {
+  let priorityPainted = false;
+  let viewportSettled = false;
+  const priorityTask = loadPriority?.()
+    .then((value) => {
+      if (!viewportSettled) priorityPainted = paint(value, "priority");
+    })
+    .catch(() => undefined);
+
+  try {
+    const viewport = await loadViewport();
+    viewportSettled = true;
+    const viewportPainted = paint(viewport, "viewport");
+    return { priorityPainted, viewportPainted };
+  } catch (viewportError) {
+    if (priorityTask) await priorityTask;
+    viewportSettled = true;
+    if (priorityPainted) return { priorityPainted, viewportPainted: false };
+    throw viewportError;
+  }
+}
+
 export function splitSeoulBuildingBounds(bounds: BuildingBounds): BuildingBounds[] {
   const [west, south, east, north] = bounds;
   const axisCells = (start: number, end: number, origin: number, ceiling: number) => {

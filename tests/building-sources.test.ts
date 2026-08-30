@@ -10,6 +10,7 @@ import {
   prioritySeoulBuildingBounds,
   splitSeoulBuildingBounds,
   normalizeSeoulBuildings,
+  loadSeoulBuildingPhases,
 } from "../src/lib/building-sources";
 
 const polygon: Polygon = {
@@ -101,4 +102,47 @@ test("drops corrupt S-MAP records instead of inventing a precision height", () =
     { type: "Feature", geometry: polygon, properties: { min: null, max: 40 } },
   ];
   assert.equal(normalizeSeoulBuildings(input).features.length, 0);
+});
+
+test("starts priority and viewport building loads together and paints progressively", async () => {
+  let resolvePriority!: (value: string) => void;
+  let resolveViewport!: (value: string) => void;
+  const started: string[] = [];
+  const painted: string[] = [];
+  const priority = new Promise<string>((resolve) => { resolvePriority = resolve; });
+  const viewport = new Promise<string>((resolve) => { resolveViewport = resolve; });
+
+  const loading = loadSeoulBuildingPhases({
+    loadPriority: () => { started.push("priority"); return priority; },
+    loadViewport: () => { started.push("viewport"); return viewport; },
+    paint: (value, phase) => { painted.push(`${phase}:${value}`); return true; },
+  });
+
+  assert.deepEqual(started, ["priority", "viewport"]);
+  resolvePriority("center");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(painted, ["priority:center"]);
+  resolveViewport("screen");
+  assert.deepEqual(await loading, { priorityPainted: true, viewportPainted: true });
+  assert.deepEqual(painted, ["priority:center", "viewport:screen"]);
+});
+
+test("does not let a late priority patch overwrite an already-painted viewport", async () => {
+  let resolvePriority!: (value: string) => void;
+  let resolveViewport!: (value: string) => void;
+  const painted: string[] = [];
+  const priority = new Promise<string>((resolve) => { resolvePriority = resolve; });
+  const viewport = new Promise<string>((resolve) => { resolveViewport = resolve; });
+  const loading = loadSeoulBuildingPhases({
+    loadPriority: () => priority,
+    loadViewport: () => viewport,
+    paint: (value, phase) => { painted.push(`${phase}:${value}`); return true; },
+  });
+
+  resolveViewport("screen");
+  const result = await loading;
+  assert.deepEqual(result, { priorityPainted: false, viewportPainted: true });
+  resolvePriority("center");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(painted, ["viewport:screen"]);
 });

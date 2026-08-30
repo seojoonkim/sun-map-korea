@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import maplibregl, { GeoJSONSource, Map as MapLibreMap, type ExpressionSpecification } from "maplibre-gl";
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { SolarPosition } from "@/lib/solar";
@@ -9,6 +9,7 @@ import {
   buildSeoulBuildingRequest,
   expandSeoulBuildingBounds,
   isPotentialSeoulViewport,
+  loadSeoulBuildingPhases,
   normalizeSeoulBuildings,
   prioritySeoulBuildingBounds,
   type BuildingBounds,
@@ -57,6 +58,7 @@ type RenderedBuilding = {
 };
 
 export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapCanvasProps) {
+  const [buildingLoading, setBuildingLoading] = useState(false);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const buildingsRef = useRef<FeatureCollection<Polygon>>(EMPTY_BUILDINGS);
@@ -168,6 +170,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       precisionAbortRef.current?.abort();
       const center = map.getCenter();
       if (!isPotentialSeoulViewport([center.lng, center.lat], map.getZoom())) {
+        setBuildingLoading(false);
         showFallback();
         precisionCoverageRef.current = null;
         (map.getSource("seoul-buildings") as GeoJSONSource | undefined)?.setData(EMPTY_SOURCE);
@@ -183,10 +186,12 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
         seoulPrecisionActiveRef.current
         && buildingBoundsContain(precisionCoverageRef.current, viewportBounds)
       ) {
+        setBuildingLoading(false);
         refreshMapData();
         return;
       }
 
+      setBuildingLoading(true);
       const requestBounds = expandSeoulBuildingBounds(viewportBounds);
       const priorityBounds = prioritySeoulBuildingBounds([center.lng, center.lat]);
       const controller = new AbortController();
@@ -208,17 +213,22 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
         return true;
       };
       try {
-        if (!buildingBoundsContain(precisionCoverageRef.current, priorityBounds)) {
-          const priorityBuildings = await fetchPrecisionBuildings(priorityBounds);
-          if (!paintPrecisionBuildings(priorityBuildings)) return;
+        const { viewportPainted } = await loadSeoulBuildingPhases({
+          loadPriority: buildingBoundsContain(precisionCoverageRef.current, priorityBounds)
+            ? undefined
+            : () => fetchPrecisionBuildings(priorityBounds),
+          loadViewport: () => fetchPrecisionBuildings(requestBounds),
+          paint: paintPrecisionBuildings,
+        });
+        if (viewportPainted && requestId === precisionRequestRef.current) {
+          precisionCoverageRef.current = requestBounds;
         }
-        const viewportBuildings = await fetchPrecisionBuildings(requestBounds);
-        if (!paintPrecisionBuildings(viewportBuildings)) return;
-        precisionCoverageRef.current = requestBounds;
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
         if (!seoulPrecisionActiveRef.current) showFallback();
         refreshMapData();
+      } finally {
+        if (requestId === precisionRequestRef.current) setBuildingLoading(false);
       }
     };
 
@@ -326,5 +336,20 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
     scheduleShadowUpdate(35);
   }, [solar, scheduleShadowUpdate]);
 
-  return <div ref={mapContainer} className="map" aria-label="대한민국 인터랙티브 일조 지도" />;
+  return (
+    <>
+      <div
+        ref={mapContainer}
+        className="map"
+        aria-label="대한민국 인터랙티브 일조 지도"
+        data-building-loading={buildingLoading ? "true" : "false"}
+      />
+      {buildingLoading && (
+        <div className="building-loading" role="status" aria-live="polite" aria-atomic="true">
+          <span aria-hidden="true" />
+          건물 불러오는 중
+        </div>
+      )}
+    </>
+  );
 }

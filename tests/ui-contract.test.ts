@@ -180,9 +180,19 @@ test("nearby panning reuses prefetched precision buildings instead of waiting fo
 
 test("a real nearby place jump paints a target-centered precision patch before the slow full response", () => {
   assert.match(mapCanvas, /prioritySeoulBuildingBounds/);
-  assert.match(mapCanvas, /await fetchPrecisionBuildings\(priorityBounds/);
-  assert.match(mapCanvas, /await fetchPrecisionBuildings\(requestBounds/);
+  assert.match(mapCanvas, /loadSeoulBuildingPhases/);
+  assert.match(mapCanvas, /fetchPrecisionBuildings\(priorityBounds\)/);
+  assert.match(mapCanvas, /loadViewport:\s*\(\)\s*=>\s*fetchPrecisionBuildings\(requestBounds\)/);
   assert.match(mapCanvas, /duration:\s*350/);
+});
+
+test("precision building loading is visibly and accessibly announced", () => {
+  assert.match(mapCanvas, /useState\(false\)/);
+  assert.match(mapCanvas, /className="building-loading"/);
+  assert.match(mapCanvas, /role="status"/);
+  assert.match(mapCanvas, /aria-live="polite"/);
+  assert.match(mapCanvas, /건물 불러오는 중/);
+  assert.match(css, /\.building-loading\s*\{/);
 });
 
 test("a selected place updates coordinates and locality before precision buildings finish", () => {
