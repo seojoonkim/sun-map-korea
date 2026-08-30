@@ -125,6 +125,20 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
     mapRef.current = map;
     if (!compactMap) map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "bottom-right");
     map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+    if (compactMap) {
+      let attributionInteracted = false;
+      mapContainer.current
+        .querySelector(".maplibregl-ctrl-attrib-button")
+        ?.addEventListener("click", () => { attributionInteracted = true; }, { once: true });
+      const collapseAttribution = () => {
+        if (attributionInteracted) return;
+        const attribution = mapContainer.current?.querySelector("details.maplibregl-ctrl-attrib");
+        attribution?.removeAttribute("open");
+        attribution?.classList.remove("maplibregl-compact-show");
+      };
+      window.requestAnimationFrame(collapseAttribution);
+      map.once("load", collapseAttribution);
+    }
 
     const refreshMapData = () => {
       if (!map.getLayer(FALLBACK_LAYER) || !map.getLayer(SEOUL_LAYER)) return;
@@ -229,7 +243,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       map.setFilter(FALLBACK_LAYER, ["!", ["==", ["get", "hide_3d"], true]]);
       map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-color", [
         "interpolate", ["linear"], fallbackHeight,
-        4, "#ffb9d7", 30, "#92ddff", 100, "#fff0a6",
+        4, "#dce2e4", 30, "#cbd3d6", 100, "#b8c3c7",
       ]);
       map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-height", fallbackHeight);
       map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-base", ["coalesce", ["get", "render_min_height"], 0]);
@@ -252,7 +266,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
         type: "fill",
         source: "solar-shadow",
         paint: {
-          "fill-color": "#7967d8",
+          "fill-color": "#394653",
           "fill-opacity": [
             "interpolate", ["linear"], ["zoom"],
             13, ["*", 0.45, ["coalesce", ["get", "strength"], 0.2]],
@@ -268,7 +282,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
         minzoom: 13,
         layout: { visibility: "none" },
         paint: {
-          "fill-extrusion-color": ["interpolate", ["linear"], ["get", "height"], 4, "#ffb9d7", 30, "#92ddff", 100, "#fff0a6"],
+          "fill-extrusion-color": ["interpolate", ["linear"], ["get", "height"], 4, "#dce2e4", 30, "#cbd3d6", 100, "#b8c3c7"],
           "fill-extrusion-height": ["get", "height"],
           "fill-extrusion-base": ["coalesce", ["get", "minHeight"], 0],
           "fill-extrusion-opacity": compactMap ? 0.9 : 0.94,

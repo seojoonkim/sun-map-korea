@@ -24,8 +24,13 @@ test("date is a first-class labeled control", () => {
 
 test("mobile rendering disables expensive decorative compositing", () => {
   const mobile = css.slice(css.indexOf("@media (max-width:760px)"));
-  assert.match(mobile, /\.map-grid\s*\{[^}]*display:none/);
   assert.match(mobile, /\.glass-panel\s*\{[^}]*backdrop-filter:none/);
+  assert.doesNotMatch(component, /map-grid|map-vignette/);
+  assert.match(mapCanvas, /details\.maplibregl-ctrl-attrib/);
+  assert.match(mapCanvas, /removeAttribute\("open"\)/);
+  assert.match(mapCanvas, /classList\.remove\("maplibregl-compact-show"\)/);
+  assert.match(mapCanvas, /if \(attributionInteracted\) return/);
+  assert.match(mobile, /\.maplibregl-ctrl-attrib-button\s*\{[^}]*min-width:40px[^}]*min-height:40px/);
 });
 test("heavy map engine is deferred behind a dynamic map canvas", () => {
   assert.match(component, /dynamic\(\(\)\s*=>\s*import\("\.\/MapCanvas"\)/);
@@ -58,20 +63,29 @@ test("nationwide search is explicit, accessible, and keeps the map marker-free",
   assert.doesNotMatch(geoSearch, /map-marker|selected-point/);
 });
 
-test("the visual system is pop and the sun identity is friendly", () => {
+test("the visual system is minimal, unified, and the sun identity stays friendly", () => {
   assert.match(component, /className="sun-face"/);
   assert.match(component, /className="sun-eye/);
-  assert.match(component, /className="sun-eye-highlight/);
   assert.match(component, /className="sun-smile"/);
-  assert.match(component, /className="sun-cheek/);
-  assert.match(css, /--pink:\s*#ff6fae/i);
-  assert.match(css, /--sky:\s*#72d7ff/i);
+  assert.doesNotMatch(component, /sun-eye-highlight|sun-cheek|map-grid|map-vignette|prototype-badge|district-badge/);
+  assert.match(component, /className="topbar glass-panel"/);
+  assert.match(css, /--solar:\s*#f5b301/i);
+  assert.match(css, /--radius-panel:\s*14px/);
+  assert.match(css, /--radius-control:\s*10px/);
+  assert.match(css, /--radius-pill:\s*999px/);
+  assert.match(css, /--shadow-panel:\s*0 4px 16px rgba\(26,29,36,\.1\)/);
+  assert.doesNotMatch(css, /--pink|--sky|--violet|--mint|#ff6fae|#7967d8/i);
   assert.match(css, /\.sun-eye\s*\{[^}]*fill:var\(--ink\)/);
-  assert.match(css, /\.sun-eye-highlight\s*\{[^}]*fill:#fff/);
-  assert.match(css, /border-radius:\s*24px/);
-  assert.match(appIcon, /class="sun-eye-highlight"/);
+  assert.doesNotMatch(css, /\.sun-face\s*\{[^}]*drop-shadow/);
+  assert.doesNotMatch(css, /button:hover\s*\{[^}]*transform/);
   assert.match(appIcon, /class="sun-smile"/);
-  assert.match(appIcon, /#ff6fae/i);
+  assert.match(appIcon, /#f5b301/i);
+  assert.doesNotMatch(appIcon, /sun-eye-highlight|sun-cheek|#ff6fae/i);
+});
+
+test("map-center locality changes remain available to assistive technology", () => {
+  assert.match(component, /className="sr-only" role="status" aria-live="polite"/);
+  assert.match(component, /지도 중심 위치: \{currentLocation\}/);
 });
 
 test("essential interface copy stays readable on desktop and mobile", () => {

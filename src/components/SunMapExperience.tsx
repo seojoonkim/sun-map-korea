@@ -47,15 +47,11 @@ function Icon({ name }: { name: "play" | "pause" }) {
 function SunLogo() {
   return (
     <svg className="sun-face" aria-hidden="true" viewBox="0 0 64 64">
-      <path className="sun-rays" d="M32 3v7M32 54v7M3 32h7M54 32h7M11.5 11.5l5 5M47.5 47.5l5 5M52.5 11.5l-5 5M16.5 47.5l-5 5" />
-      <circle className="sun-disc" cx="32" cy="32" r="21" />
-      <ellipse className="sun-eye left" cx="24" cy="30" rx="3.4" ry="4.8" />
-      <ellipse className="sun-eye right" cx="40" cy="30" rx="3.4" ry="4.8" />
-      <circle className="sun-eye-highlight" cx="25" cy="28.5" r="1.1" />
-      <circle className="sun-eye-highlight" cx="41" cy="28.5" r="1.1" />
-      <ellipse className="sun-cheek" cx="19.5" cy="38" rx="3.7" ry="2" />
-      <ellipse className="sun-cheek" cx="44.5" cy="38" rx="3.7" ry="2" />
-      <path className="sun-smile" d="M28 38.5c2.5 2.8 5.5 2.8 8 0" />
+      <path className="sun-rays" d="M32 4v7M32 53v7M4 32h7M53 32h7M12.2 12.2l5 5M46.8 46.8l5 5M51.8 12.2l-5 5M17.2 46.8l-5 5" />
+      <circle className="sun-disc" cx="32" cy="32" r="19" />
+      <circle className="sun-eye left" cx="25" cy="30" r="2.7" />
+      <circle className="sun-eye right" cx="39" cy="30" r="2.7" />
+      <path className="sun-smile" d="M27.5 38c3 2.8 6 2.8 9 0" />
     </svg>
   );
 }
@@ -137,18 +133,15 @@ export default function SunMapExperience() {
   return (
     <main className={`app ${solar.isDaylight ? "is-day" : "is-night"}`}>
       <MapCanvas solar={solar} onCenterChange={setCoordinates} cameraRequest={cameraRequest} />
-      <div className="map-vignette" />
-      <div className="map-grid" />
       <div className="map-center-reticle" aria-hidden="true"><span /><span /></div>
+      <p className="sr-only" role="status" aria-live="polite">지도 중심 위치: {currentLocation}</p>
 
-      <header className="topbar">
+      <header className="topbar glass-panel">
         <div className="brand-block">
           <div className="brand-mark"><SunLogo /></div>
           <div><p>SUN MAP</p><strong>KOREA</strong></div>
         </div>
         <GeoSearch onSelect={selectPlace} onViewKorea={viewKorea} />
-        <div className="district-badge" aria-live="polite"><span /> {currentLocation}</div>
-        <div className="prototype-badge">NATIONWIDE · LIVE 3D</div>
       </header>
 
       <section className="solar-readout glass-panel" aria-label="지도 중심 태양과 일조 정보">
