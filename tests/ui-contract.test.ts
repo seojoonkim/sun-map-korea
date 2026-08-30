@@ -111,6 +111,10 @@ test("all ordinary nationwide OpenFreeMap footprints remain eligible for 3D rend
   assert.match(mapCanvas, /setPaintProperty\(FALLBACK_LAYER, "fill-extrusion-height", fallbackHeight\)/);
 });
 
+test("regional moves refresh real OSM buildings after destination tiles are ready", () => {
+  assert.match(mapCanvas, /map\.on\("moveend", \(\) => \{[\s\S]*?map\.once\("idle", refreshMapData\);[\s\S]*?void updatePrecisionBuildings\(\);/);
+});
+
 test("sun position and daylight metrics share one compact information row", () => {
   const regionStart = component.indexOf('className="solar-readout glass-panel"');
   const regionEnd = component.indexOf("</section>", regionStart);
@@ -235,9 +239,10 @@ test("shadow paint preserves solar-elevation strength at every map zoom", () => 
   assert.match(mapCanvas, /dataset\.shadowStrength\s*=\s*String\(shadowOpacityForElevation\(elevation\)\)/);
 });
 
-test("lively apricot buildings stay visually distinct from clear sky-blue shadows", () => {
-  assert.match(mapCanvas, /const BUILDING_COLORS = \["#ffd166", "#ffb45a", "#ff8a5b"\]/i);
-  assert.match(mapCanvas, /const SHADOW_COLOR = "#4c9fe8"/i);
+test("orange buildings use the exact opposite hue from blue shadows", () => {
+  assert.match(mapCanvas, /const BUILDING_COLORS = \["#ffc370", "#ffae3d", "#f59714"\]/i);
+  assert.match(mapCanvas, /const SHADOW_COLOR = "#1c6fe3"/i);
+  assert.match(mapCanvas, /Complementary hues: building orange 35°, shadow blue 215°/);
   assert.match(mapCanvas, /"fill-color": SHADOW_COLOR/);
   assert.match(mapCanvas, /4, BUILDING_COLORS\[0\], 30, BUILDING_COLORS\[1\], 100, BUILDING_COLORS\[2\]/);
 });

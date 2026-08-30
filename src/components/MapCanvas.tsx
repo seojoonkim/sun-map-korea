@@ -40,8 +40,9 @@ const BASE_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const FALLBACK_LAYER = "building-3d";
 const SEOUL_LAYER = "seoul-building-3d";
 const NIGHT_TINT_LAYER = "night-map-tint";
-const BUILDING_COLORS = ["#ffd166", "#ffb45a", "#ff8a5b"];
-const SHADOW_COLOR = "#4c9fe8";
+// Complementary hues: building orange 35°, shadow blue 215°.
+const BUILDING_COLORS = ["#ffc370", "#ffae3d", "#f59714"];
+const SHADOW_COLOR = "#1c6fe3";
 const MAX_PRECISION_CACHE_CELLS = 48;
 
 type MapCanvasProps = {
@@ -329,6 +330,9 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
     map.on("moveend", () => {
       const center = map.getCenter();
       onCenterChange([center.lng, center.lat]);
+      // A long-distance jump can finish before the destination vector tiles.
+      // Re-read real OSM footprints once those tiles are fully rendered.
+      map.once("idle", refreshMapData);
       void updatePrecisionBuildings();
     });
 
