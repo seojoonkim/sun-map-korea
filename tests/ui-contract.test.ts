@@ -235,9 +235,9 @@ test("shadow paint preserves solar-elevation strength at every map zoom", () => 
   assert.match(mapCanvas, /dataset\.shadowStrength\s*=\s*String\(shadowOpacityForElevation\(elevation\)\)/);
 });
 
-test("warm pastel buildings stay visually distinct from cool pastel shadows", () => {
-  assert.match(mapCanvas, /const BUILDING_COLORS = \["#f6d6ad", "#edc39f", "#dda982"\]/i);
-  assert.match(mapCanvas, /const SHADOW_COLOR = "#6577b3"/i);
+test("lively apricot buildings stay visually distinct from clear sky-blue shadows", () => {
+  assert.match(mapCanvas, /const BUILDING_COLORS = \["#ffd166", "#ffb45a", "#ff8a5b"\]/i);
+  assert.match(mapCanvas, /const SHADOW_COLOR = "#4c9fe8"/i);
   assert.match(mapCanvas, /"fill-color": SHADOW_COLOR/);
   assert.match(mapCanvas, /4, BUILDING_COLORS\[0\], 30, BUILDING_COLORS\[1\], 100, BUILDING_COLORS\[2\]/);
 });

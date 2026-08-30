@@ -40,8 +40,8 @@ const BASE_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const FALLBACK_LAYER = "building-3d";
 const SEOUL_LAYER = "seoul-building-3d";
 const NIGHT_TINT_LAYER = "night-map-tint";
-const BUILDING_COLORS = ["#f6d6ad", "#edc39f", "#dda982"];
-const SHADOW_COLOR = "#6577b3";
+const BUILDING_COLORS = ["#ffd166", "#ffb45a", "#ff8a5b"];
+const SHADOW_COLOR = "#4c9fe8";
 const MAX_PRECISION_CACHE_CELLS = 48;
 
 type MapCanvasProps = {
