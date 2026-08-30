@@ -10,7 +10,9 @@ const SEOUL_BOUNDS = {
   north: 37.72,
 };
 const MAX_VIEWPORT_SPAN = 0.25;
+const PRECISION_PREFETCH_RATIO = 0.25;
 
+export type BuildingBounds = [number, number, number, number];
 type BuildingGeometry = Polygon | MultiPolygon;
 type SourceFeature = Feature<BuildingGeometry>;
 
@@ -23,7 +25,38 @@ export function isPotentialSeoulViewport(center: [number, number], zoom: number)
     && latitude <= SEOUL_BOUNDS.north;
 }
 
-export function buildSeoulBuildingRequest(bbox: [number, number, number, number]) {
+export function buildingBoundsContain(outer: BuildingBounds | null, inner: BuildingBounds) {
+  if (!outer) return false;
+  return outer[0] <= inner[0]
+    && outer[1] <= inner[1]
+    && outer[2] >= inner[2]
+    && outer[3] >= inner[3];
+}
+
+export function expandSeoulBuildingBounds(bounds: BuildingBounds): BuildingBounds {
+  const [west, south, east, north] = bounds;
+  const longitudePadding = (east - west) * PRECISION_PREFETCH_RATIO;
+  const latitudePadding = (north - south) * PRECISION_PREFETCH_RATIO;
+  const expanded: BuildingBounds = [
+    Math.max(SEOUL_BOUNDS.west, west - longitudePadding),
+    Math.max(SEOUL_BOUNDS.south, south - latitudePadding),
+    Math.min(SEOUL_BOUNDS.east, east + longitudePadding),
+    Math.min(SEOUL_BOUNDS.north, north + latitudePadding),
+  ];
+  const centerLongitude = (west + east) / 2;
+  const centerLatitude = (south + north) / 2;
+  if (expanded[2] - expanded[0] > MAX_VIEWPORT_SPAN) {
+    expanded[0] = centerLongitude - MAX_VIEWPORT_SPAN / 2;
+    expanded[2] = centerLongitude + MAX_VIEWPORT_SPAN / 2;
+  }
+  if (expanded[3] - expanded[1] > MAX_VIEWPORT_SPAN) {
+    expanded[1] = centerLatitude - MAX_VIEWPORT_SPAN / 2;
+    expanded[3] = centerLatitude + MAX_VIEWPORT_SPAN / 2;
+  }
+  return expanded.map((coordinate) => Number(coordinate.toFixed(6))) as BuildingBounds;
+}
+
+export function buildSeoulBuildingRequest(bbox: BuildingBounds) {
   const [west, south, east, north] = bbox;
   if (![west, south, east, north].every(Number.isFinite)
     || west >= east

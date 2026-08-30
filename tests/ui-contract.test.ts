@@ -128,9 +128,20 @@ test("the live map exposes its active building source and rendered feature count
 });
 
 test("panning and precision loading keep nationwide buildings visible without coverage holes", () => {
-  assert.match(mapCanvas, /map\.on\("movestart",\s*\(\)\s*=>\s*\{[\s\S]*?precisionAbortRef\.current\?\.abort\(\);[\s\S]*?precisionRequestRef\.current \+= 1;[\s\S]*?showFallback\(\);[\s\S]*?\}\)/);
+  const moveStart = mapCanvas.slice(
+    mapCanvas.indexOf("map.on(\"movestart\""),
+    mapCanvas.indexOf("map.on(\"moveend\""),
+  );
+  assert.match(moveStart, /precisionAbortRef\.current\?\.abort\(\);[\s\S]*?precisionRequestRef\.current \+= 1/);
+  assert.doesNotMatch(moveStart, /showFallback\(\)/);
   assert.match(mapCanvas, /map\.on\("moveend",\s*\(\)\s*=>\s*void updatePrecisionBuildings\(\)\)/);
   assert.match(mapCanvas, /setData\(normalized\);\s*map\.setLayoutProperty\(FALLBACK_LAYER, "visibility", "visible"\);\s*map\.setLayoutProperty\(SEOUL_LAYER, "visibility", "visible"\)/);
+});
+
+test("nearby panning reuses prefetched precision buildings instead of waiting for another request", () => {
+  assert.match(mapCanvas, /precisionCoverageRef/);
+  assert.match(mapCanvas, /buildingBoundsContain\(precisionCoverageRef\.current, viewportBounds\)/);
+  assert.match(mapCanvas, /expandSeoulBuildingBounds\(viewportBounds\)/);
 });
 
 test("initial building paint reuses and restyles the basemap building layer before precision data arrives", () => {

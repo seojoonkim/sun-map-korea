@@ -3,7 +3,9 @@ import test from "node:test";
 import type { Feature, MultiPolygon, Polygon } from "geojson";
 import {
   NATIONWIDE_BUILDINGS_URL,
+  buildingBoundsContain,
   buildSeoulBuildingRequest,
+  expandSeoulBuildingBounds,
   isPotentialSeoulViewport,
   normalizeSeoulBuildings,
 } from "../src/lib/building-sources";
@@ -36,6 +38,15 @@ test("builds a bounded same-origin request for Seoul buildings", () => {
   const request = buildSeoulBuildingRequest([126.97, 37.56, 126.99, 37.58]);
   assert.equal(request, "/api/buildings/seoul?bbox=126.970000,37.560000,126.990000,37.580000");
   assert.throws(() => buildSeoulBuildingRequest([126, 37, 128, 38]), /viewport/i);
+});
+
+test("prefetches a padded Seoul area and reuses it for nearby panning", () => {
+  const viewport: [number, number, number, number] = [127.03, 37.49, 127.07, 37.53];
+  const prefetched = expandSeoulBuildingBounds(viewport);
+
+  assert.deepEqual(prefetched, [127.02, 37.48, 127.08, 37.54]);
+  assert.equal(buildingBoundsContain(prefetched, [127.035, 37.495, 127.075, 37.535]), true);
+  assert.equal(buildingBoundsContain(prefetched, [127.07, 37.50, 127.09, 37.52]), false);
 });
 
 test("turns S-MAP min/max elevations into measured building heights", () => {

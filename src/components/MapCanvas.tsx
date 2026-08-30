@@ -5,9 +5,12 @@ import maplibregl, { GeoJSONSource, Map as MapLibreMap, type ExpressionSpecifica
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { SolarPosition } from "@/lib/solar";
 import {
+  buildingBoundsContain,
   buildSeoulBuildingRequest,
+  expandSeoulBuildingBounds,
   isPotentialSeoulViewport,
   normalizeSeoulBuildings,
+  type BuildingBounds,
 } from "@/lib/building-sources";
 import { createBuildingShadows, DEFAULT_BUILDING_HEIGHT, normalizeBuildingFeatures } from "@/lib/shadows";
 
@@ -54,6 +57,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
   const shadowTimerRef = useRef<number | null>(null);
   const precisionAbortRef = useRef<AbortController | null>(null);
   const precisionRequestRef = useRef(0);
+  const precisionCoverageRef = useRef<BuildingBounds | null>(null);
   const seoulPrecisionActiveRef = useRef(false);
   const solarRef = useRef(solar);
   const cameraRequestRef = useRef(cameraRequest);
@@ -142,17 +146,28 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       const center = map.getCenter();
       if (!isPotentialSeoulViewport([center.lng, center.lat], map.getZoom())) {
         showFallback();
+        precisionCoverageRef.current = null;
         (map.getSource("seoul-buildings") as GeoJSONSource | undefined)?.setData(EMPTY_SOURCE);
         refreshMapData();
         return;
       }
 
       const bounds = map.getBounds();
+      const viewportBounds: BuildingBounds = [
+        bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth(),
+      ];
+      if (
+        seoulPrecisionActiveRef.current
+        && buildingBoundsContain(precisionCoverageRef.current, viewportBounds)
+      ) {
+        refreshMapData();
+        return;
+      }
+
+      const requestBounds = expandSeoulBuildingBounds(viewportBounds);
       let requestUrl: string;
       try {
-        requestUrl = buildSeoulBuildingRequest([
-          bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth(),
-        ]);
+        requestUrl = buildSeoulBuildingRequest(requestBounds);
       } catch {
         showFallback();
         refreshMapData();
@@ -169,17 +184,18 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
         if (requestId !== precisionRequestRef.current) return;
         const normalized = normalizeSeoulBuildings(collection.features);
         if (normalized.features.length === 0) {
-          showFallback();
+          if (!seoulPrecisionActiveRef.current) showFallback();
         } else {
           (map.getSource("seoul-buildings") as GeoJSONSource).setData(normalized);
           map.setLayoutProperty(FALLBACK_LAYER, "visibility", "visible");
           map.setLayoutProperty(SEOUL_LAYER, "visibility", "visible");
+          precisionCoverageRef.current = requestBounds;
           seoulPrecisionActiveRef.current = true;
         }
         map.once("idle", refreshMapData);
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
-        showFallback();
+        if (!seoulPrecisionActiveRef.current) showFallback();
         refreshMapData();
       }
     };
@@ -255,7 +271,6 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
     map.on("movestart", () => {
       precisionAbortRef.current?.abort();
       precisionRequestRef.current += 1;
-      showFallback();
     });
     map.on("moveend", () => void updatePrecisionBuildings());
 
