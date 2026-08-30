@@ -239,10 +239,10 @@ test("shadow paint preserves solar-elevation strength at every map zoom", () => 
   assert.match(mapCanvas, /dataset\.shadowStrength\s*=\s*String\(shadowOpacityForElevation\(elevation\)\)/);
 });
 
-test("orange buildings use the exact opposite hue from blue shadows", () => {
-  assert.match(mapCanvas, /const BUILDING_COLORS = \["#ffc370", "#ffae3d", "#f59714"\]/i);
-  assert.match(mapCanvas, /const SHADOW_COLOR = "#1c6fe3"/i);
-  assert.match(mapCanvas, /Complementary hues: building orange 35°, shadow blue 215°/);
+test("light pink buildings use the exact opposite hue from teal shadows", () => {
+  assert.match(mapCanvas, /const BUILDING_COLORS = \["#ffd6e0", "#fdafc3", "#f87797"\]/i);
+  assert.match(mapCanvas, /const SHADOW_COLOR = "#1ba784"/i);
+  assert.match(mapCanvas, /Complementary hues: building pink 345°, shadow teal 165°/);
   assert.match(mapCanvas, /"fill-color": SHADOW_COLOR/);
   assert.match(mapCanvas, /4, BUILDING_COLORS\[0\], 30, BUILDING_COLORS\[1\], 100, BUILDING_COLORS\[2\]/);
 });

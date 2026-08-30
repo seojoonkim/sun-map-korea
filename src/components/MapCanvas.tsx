@@ -40,9 +40,9 @@ const BASE_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const FALLBACK_LAYER = "building-3d";
 const SEOUL_LAYER = "seoul-building-3d";
 const NIGHT_TINT_LAYER = "night-map-tint";
-// Complementary hues: building orange 35°, shadow blue 215°.
-const BUILDING_COLORS = ["#ffc370", "#ffae3d", "#f59714"];
-const SHADOW_COLOR = "#1c6fe3";
+// Complementary hues: building pink 345°, shadow teal 165°.
+const BUILDING_COLORS = ["#ffd6e0", "#fdafc3", "#f87797"];
+const SHADOW_COLOR = "#1ba784";
 const MAX_PRECISION_CACHE_CELLS = 48;
 
 type MapCanvasProps = {
