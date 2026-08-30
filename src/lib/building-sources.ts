@@ -11,6 +11,9 @@ const SEOUL_BOUNDS = {
 };
 const MAX_VIEWPORT_SPAN = 0.25;
 const PRECISION_PREFETCH_RATIO = 0.25;
+const PRECISION_PRIORITY_HALF_SPAN = 0.002;
+const CANONICAL_CELL_SPAN = 0.012;
+const MAX_CANONICAL_GRID_AXIS = 6;
 
 export type BuildingBounds = [number, number, number, number];
 type BuildingGeometry = Polygon | MultiPolygon;
@@ -54,6 +57,42 @@ export function expandSeoulBuildingBounds(bounds: BuildingBounds): BuildingBound
     expanded[3] = centerLatitude + MAX_VIEWPORT_SPAN / 2;
   }
   return expanded.map((coordinate) => Number(coordinate.toFixed(6))) as BuildingBounds;
+}
+
+export function prioritySeoulBuildingBounds(center: [number, number]): BuildingBounds {
+  const [longitude, latitude] = center;
+  return [
+    Math.max(SEOUL_BOUNDS.west, longitude - PRECISION_PRIORITY_HALF_SPAN),
+    Math.max(SEOUL_BOUNDS.south, latitude - PRECISION_PRIORITY_HALF_SPAN),
+    Math.min(SEOUL_BOUNDS.east, longitude + PRECISION_PRIORITY_HALF_SPAN),
+    Math.min(SEOUL_BOUNDS.north, latitude + PRECISION_PRIORITY_HALF_SPAN),
+  ].map((coordinate) => Number(coordinate.toFixed(6))) as BuildingBounds;
+}
+
+export function splitSeoulBuildingBounds(bounds: BuildingBounds): BuildingBounds[] {
+  const [west, south, east, north] = bounds;
+  const axisCells = (start: number, end: number, origin: number, ceiling: number) => {
+    let span = CANONICAL_CELL_SPAN;
+    let first = Math.max(0, Math.floor((start - origin) / span));
+    let last = Math.ceil((Math.min(end, ceiling) - origin) / span) - 1;
+    while (last - first + 1 > MAX_CANONICAL_GRID_AXIS) {
+      span += CANONICAL_CELL_SPAN;
+      first = Math.max(0, Math.floor((start - origin) / span));
+      last = Math.ceil((Math.min(end, ceiling) - origin) / span) - 1;
+    }
+    return Array.from({ length: Math.max(0, last - first + 1) }, (_, index) => {
+      const cellStart = origin + (first + index) * span;
+      return [cellStart, Math.min(ceiling, cellStart + span)] as const;
+    });
+  };
+  const columns = axisCells(west, east, SEOUL_BOUNDS.west, SEOUL_BOUNDS.east);
+  const rows = axisCells(south, north, SEOUL_BOUNDS.south, SEOUL_BOUNDS.north);
+  return rows.flatMap(([cellSouth, cellNorth]) => columns.map(([cellWest, cellEast]) => [
+    cellWest,
+    cellSouth,
+    cellEast,
+    cellNorth,
+  ].map((coordinate) => Number(coordinate.toFixed(6))) as BuildingBounds));
 }
 
 export function buildSeoulBuildingRequest(bbox: BuildingBounds) {

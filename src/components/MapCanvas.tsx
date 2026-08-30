@@ -10,6 +10,7 @@ import {
   expandSeoulBuildingBounds,
   isPotentialSeoulViewport,
   normalizeSeoulBuildings,
+  prioritySeoulBuildingBounds,
   type BuildingBounds,
 } from "@/lib/building-sources";
 import { createBuildingShadows, DEFAULT_BUILDING_HEIGHT, normalizeBuildingFeatures } from "@/lib/shadows";
@@ -78,7 +79,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
         zoom: compactMap ? 14.2 : 15.1,
         pitch: compactMap ? 38 : 50,
         bearing: -12,
-        duration: 1000,
+        duration: 350,
       });
     }
   }, []);
@@ -165,34 +166,33 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       }
 
       const requestBounds = expandSeoulBuildingBounds(viewportBounds);
-      let requestUrl: string;
-      try {
-        requestUrl = buildSeoulBuildingRequest(requestBounds);
-      } catch {
-        showFallback();
-        refreshMapData();
-        return;
-      }
-
+      const priorityBounds = prioritySeoulBuildingBounds([center.lng, center.lat]);
       const controller = new AbortController();
       precisionAbortRef.current = controller;
       const requestId = ++precisionRequestRef.current;
-      try {
-        const response = await fetch(requestUrl, { signal: controller.signal });
+      const fetchPrecisionBuildings = async (requestBounds: BuildingBounds) => {
+        const response = await fetch(buildSeoulBuildingRequest(requestBounds), { signal: controller.signal });
         if (!response.ok) throw new Error(`Seoul buildings ${response.status}`);
         const collection = await response.json() as FeatureCollection<Polygon | MultiPolygon>;
-        if (requestId !== precisionRequestRef.current) return;
-        const normalized = normalizeSeoulBuildings(collection.features);
-        if (normalized.features.length === 0) {
-          if (!seoulPrecisionActiveRef.current) showFallback();
-        } else {
-          (map.getSource("seoul-buildings") as GeoJSONSource).setData(normalized);
-          map.setLayoutProperty(FALLBACK_LAYER, "visibility", "visible");
-          map.setLayoutProperty(SEOUL_LAYER, "visibility", "visible");
-          precisionCoverageRef.current = requestBounds;
-          seoulPrecisionActiveRef.current = true;
-        }
+        return normalizeSeoulBuildings(collection.features);
+      };
+      const paintPrecisionBuildings = (normalized: FeatureCollection<Polygon | MultiPolygon>) => {
+        if (requestId !== precisionRequestRef.current || normalized.features.length === 0) return false;
+        (map.getSource("seoul-buildings") as GeoJSONSource).setData(normalized);
+        map.setLayoutProperty(FALLBACK_LAYER, "visibility", "visible");
+        map.setLayoutProperty(SEOUL_LAYER, "visibility", "visible");
+        seoulPrecisionActiveRef.current = true;
         map.once("idle", refreshMapData);
+        return true;
+      };
+      try {
+        if (!buildingBoundsContain(precisionCoverageRef.current, priorityBounds)) {
+          const priorityBuildings = await fetchPrecisionBuildings(priorityBounds);
+          if (!paintPrecisionBuildings(priorityBuildings)) return;
+        }
+        const viewportBuildings = await fetchPrecisionBuildings(requestBounds);
+        if (!paintPrecisionBuildings(viewportBuildings)) return;
+        precisionCoverageRef.current = requestBounds;
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
         if (!seoulPrecisionActiveRef.current) showFallback();

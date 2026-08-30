@@ -144,6 +144,13 @@ test("nearby panning reuses prefetched precision buildings instead of waiting fo
   assert.match(mapCanvas, /expandSeoulBuildingBounds\(viewportBounds\)/);
 });
 
+test("a real nearby place jump paints a target-centered precision patch before the slow full response", () => {
+  assert.match(mapCanvas, /prioritySeoulBuildingBounds/);
+  assert.match(mapCanvas, /await fetchPrecisionBuildings\(priorityBounds/);
+  assert.match(mapCanvas, /await fetchPrecisionBuildings\(requestBounds/);
+  assert.match(mapCanvas, /duration:\s*350/);
+});
+
 test("initial building paint reuses and restyles the basemap building layer before precision data arrives", () => {
   assert.match(mapCanvas, /const FALLBACK_LAYER = "building-3d"/);
   assert.doesNotMatch(mapCanvas, /addSource\("fallback-buildings"/);
