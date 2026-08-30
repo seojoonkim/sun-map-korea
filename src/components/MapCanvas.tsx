@@ -172,7 +172,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
           showFallback();
         } else {
           (map.getSource("seoul-buildings") as GeoJSONSource).setData(normalized);
-          map.setLayoutProperty(FALLBACK_LAYER, "visibility", "none");
+          map.setLayoutProperty(FALLBACK_LAYER, "visibility", "visible");
           map.setLayoutProperty(SEOUL_LAYER, "visibility", "visible");
           seoulPrecisionActiveRef.current = true;
         }

@@ -127,9 +127,10 @@ test("the live map exposes its active building source and rendered feature count
   assert.match(mapCanvas, /dataset\.buildingCount/);
 });
 
-test("panning reveals nationwide buildings while the next Seoul precision viewport loads", () => {
+test("panning and precision loading keep nationwide buildings visible without coverage holes", () => {
   assert.match(mapCanvas, /map\.on\("movestart",\s*\(\)\s*=>\s*\{[\s\S]*?precisionAbortRef\.current\?\.abort\(\);[\s\S]*?precisionRequestRef\.current \+= 1;[\s\S]*?showFallback\(\);[\s\S]*?\}\)/);
   assert.match(mapCanvas, /map\.on\("moveend",\s*\(\)\s*=>\s*void updatePrecisionBuildings\(\)\)/);
+  assert.match(mapCanvas, /setData\(normalized\);\s*map\.setLayoutProperty\(FALLBACK_LAYER, "visibility", "visible"\);\s*map\.setLayoutProperty\(SEOUL_LAYER, "visibility", "visible"\)/);
 });
 
 test("initial building paint reuses and restyles the basemap building layer before precision data arrives", () => {
