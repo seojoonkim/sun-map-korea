@@ -184,3 +184,9 @@ test("night mode darkens the base map while keeping the daytime map clear", () =
   assert.match(css, /\.is-night>\.map \.maplibregl-canvas\s*\{[^}]*filter:brightness\(\.38\)/);
   assert.match(css, /\.is-day>\.map \.maplibregl-canvas\s*\{[^}]*filter:none/);
 });
+
+test("shadow paint preserves solar-elevation strength at every map zoom", () => {
+  assert.match(mapCanvas, /"fill-opacity":\s*\[\s*"interpolate",\s*\["linear"\],\s*\["zoom"\][\s\S]*?\["get",\s*"strength"\]/);
+  assert.doesNotMatch(mapCanvas, /"fill-opacity":\s*\["step",\s*\["zoom"\],\s*0\.2/);
+  assert.match(mapCanvas, /dataset\.shadowStrength\s*=\s*String\(shadowOpacityForElevation\(elevation\)\)/);
+});

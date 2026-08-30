@@ -106,6 +106,12 @@ export function normalizeBuildingFeatures(features: readonly RawBuildingFeature[
   return { type: "FeatureCollection", features: normalized };
 }
 
+export function shadowOpacityForElevation(elevation: number): number {
+  if (elevation <= 0) return 0;
+  const normalizedHeight = Math.sin(Math.min(90, elevation) * Math.PI / 180);
+  return Math.min(0.78, 0.18 + 0.6 * normalizedHeight ** 0.65);
+}
+
 export function createBuildingShadows(
   buildings: FeatureCollection<Polygon>,
   sunAzimuth: number,
@@ -113,6 +119,7 @@ export function createBuildingShadows(
 ): FeatureCollection<Polygon> {
   if (elevation <= 0) return { type: "FeatureCollection", features: [] };
   const bearing = (sunAzimuth + 180) % 360;
+  const strength = shadowOpacityForElevation(elevation);
   const features: Feature<Polygon>[] = buildings.features.map((building, index) => {
     const height = Number(building.properties?.height ?? 24);
     const shadowLength = Math.min(520, height / Math.tan(Math.max(4, elevation) * Math.PI / 180));
@@ -122,7 +129,12 @@ export function createBuildingShadows(
     hull.push(hull[0]);
     return {
       type: "Feature",
-      properties: { id: building.properties?.id ?? `shadow-${index}`, height, shadowLength, strength: 0.78 },
+      properties: {
+        id: building.properties?.id ?? `shadow-${index}`,
+        height,
+        shadowLength,
+        strength,
+      },
       geometry: { type: "Polygon", coordinates: [hull] },
     };
   });

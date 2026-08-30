@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { MultiPolygon, Polygon } from "geojson";
-import { DEFAULT_BUILDING_HEIGHT, normalizeBuildingFeatures } from "../src/lib/shadows";
+import {
+  DEFAULT_BUILDING_HEIGHT,
+  normalizeBuildingFeatures,
+  shadowOpacityForElevation,
+} from "../src/lib/shadows";
 
 const square: Polygon = {
   type: "Polygon",
@@ -42,4 +46,16 @@ test("falls back for non-positive heights and excludes explicitly hidden buildin
   ]);
   assert.equal(result.features.length, 1);
   assert.equal(result.features[0].properties?.height, DEFAULT_BUILDING_HEIGHT);
+});
+
+test("makes shadows faint near sunrise and darkest around solar noon", () => {
+  const sunrise = shadowOpacityForElevation(2);
+  const morning = shadowOpacityForElevation(25);
+  const noon = shadowOpacityForElevation(70);
+
+  assert.equal(shadowOpacityForElevation(0), 0);
+  assert.ok(sunrise >= 0.18 && sunrise <= 0.3);
+  assert.ok(sunrise < morning);
+  assert.ok(morning < noon);
+  assert.ok(noon <= 0.78);
 });

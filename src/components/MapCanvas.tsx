@@ -13,7 +13,12 @@ import {
   prioritySeoulBuildingBounds,
   type BuildingBounds,
 } from "@/lib/building-sources";
-import { createBuildingShadows, DEFAULT_BUILDING_HEIGHT, normalizeBuildingFeatures } from "@/lib/shadows";
+import {
+  createBuildingShadows,
+  DEFAULT_BUILDING_HEIGHT,
+  normalizeBuildingFeatures,
+  shadowOpacityForElevation,
+} from "@/lib/shadows";
 
 const SEOUL_CENTER: [number, number] = [127.02761, 37.49794];
 const KOREA_BOUNDS: [[number, number], [number, number]] = [[124.0, 32.2], [132.2, 39.2]];
@@ -91,6 +96,9 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       const map = mapRef.current;
       if (!map || !map.isStyleLoaded()) return;
       const { azimuth, elevation } = solarRef.current;
+      if (mapContainer.current) {
+        mapContainer.current.dataset.shadowStrength = String(shadowOpacityForElevation(elevation));
+      }
       const source = map.getSource("solar-shadow") as GeoJSONSource | undefined;
       source?.setData(createBuildingShadows(buildingsRef.current, azimuth, elevation));
     }, delay);
@@ -245,7 +253,11 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
         source: "solar-shadow",
         paint: {
           "fill-color": "#7967d8",
-          "fill-opacity": ["step", ["zoom"], 0.2, 15.1, ["coalesce", ["get", "strength"], 0.48]],
+          "fill-opacity": [
+            "interpolate", ["linear"], ["zoom"],
+            13, ["*", 0.45, ["coalesce", ["get", "strength"], 0.2]],
+            15.1, ["coalesce", ["get", "strength"], 0.48],
+          ],
         },
       });
       map.moveLayer(FALLBACK_LAYER);
