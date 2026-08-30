@@ -5,7 +5,6 @@ import maplibregl, { GeoJSONSource, Map as MapLibreMap, type ExpressionSpecifica
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { SolarPosition } from "@/lib/solar";
 import {
-  NATIONWIDE_BUILDINGS_URL,
   buildSeoulBuildingRequest,
   isPotentialSeoulViewport,
   normalizeSeoulBuildings,
@@ -28,7 +27,7 @@ const NIGHT_TINT: FeatureCollection<Polygon> = {
   }],
 };
 const BASE_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
-const FALLBACK_LAYER = "fallback-building-3d";
+const FALLBACK_LAYER = "building-3d";
 const SEOUL_LAYER = "seoul-building-3d";
 const NIGHT_TINT_LAYER = "night-map-tint";
 
@@ -187,7 +186,12 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
 
     map.on("style.load", () => {
       for (const layer of map.getStyle().layers) {
-        if (layer.type === "fill-extrusion" && "source-layer" in layer && layer["source-layer"] === "building") {
+        if (
+          layer.id !== FALLBACK_LAYER
+          && layer.type === "fill-extrusion"
+          && "source-layer" in layer
+          && layer["source-layer"] === "building"
+        ) {
           map.setLayoutProperty(layer.id, "visibility", "none");
         }
       }
@@ -197,10 +201,16 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
         ["get", "render_height"],
         DEFAULT_BUILDING_HEIGHT,
       ];
-      map.addSource("fallback-buildings", {
-        type: "vector",
-        url: NATIONWIDE_BUILDINGS_URL,
-      });
+      map.setLayerZoomRange(FALLBACK_LAYER, 13, 24);
+      map.setFilter(FALLBACK_LAYER, ["!", ["==", ["get", "hide_3d"], true]]);
+      map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-color", [
+        "interpolate", ["linear"], fallbackHeight,
+        4, "#ffb9d7", 30, "#92ddff", 100, "#fff0a6",
+      ]);
+      map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-height", fallbackHeight);
+      map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-base", ["coalesce", ["get", "render_min_height"], 0]);
+      map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-opacity", compactMap ? 0.88 : 0.92);
+      map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-vertical-gradient", !compactMap);
       map.addSource("seoul-buildings", { type: "geojson", data: EMPTY_SOURCE });
       map.addSource("solar-shadow", { type: "geojson", data: EMPTY_BUILDINGS });
       map.addSource("night-map-tint", { type: "geojson", data: NIGHT_TINT });
@@ -222,21 +232,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
           "fill-opacity": ["step", ["zoom"], 0.2, 15.1, ["coalesce", ["get", "strength"], 0.48]],
         },
       });
-      map.addLayer({
-        id: FALLBACK_LAYER,
-        type: "fill-extrusion",
-        source: "fallback-buildings",
-        "source-layer": "building",
-        minzoom: 13,
-        filter: ["!", ["==", ["get", "hide_3d"], true]],
-        paint: {
-          "fill-extrusion-color": ["interpolate", ["linear"], fallbackHeight, 4, "#ffb9d7", 30, "#92ddff", 100, "#fff0a6"],
-          "fill-extrusion-height": fallbackHeight,
-          "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
-          "fill-extrusion-opacity": compactMap ? 0.88 : 0.92,
-          "fill-extrusion-vertical-gradient": !compactMap,
-        },
-      });
+      map.moveLayer(FALLBACK_LAYER);
       map.addLayer({
         id: SEOUL_LAYER,
         type: "fill-extrusion",
@@ -251,11 +247,10 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
           "fill-extrusion-vertical-gradient": !compactMap,
         },
       });
-      applyCameraRequest(map, cameraRequestRef.current);
-      map.once("idle", () => {
-        refreshMapData();
-        void updatePrecisionBuildings();
-      });
+      const initialCameraRequest = cameraRequestRef.current;
+      applyCameraRequest(map, initialCameraRequest);
+      if (!initialCameraRequest) void updatePrecisionBuildings();
+      map.once("idle", refreshMapData);
     });
     map.on("movestart", () => {
       precisionAbortRef.current?.abort();

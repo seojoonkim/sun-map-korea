@@ -70,10 +70,11 @@ test("the visual system is pop and the sun identity is friendly", () => {
 });
 
 test("all ordinary nationwide OpenFreeMap footprints remain eligible for 3D rendering", () => {
-  assert.match(mapCanvas, /"source-layer": "building"/);
+  assert.match(mapCanvas, /const FALLBACK_LAYER = "building-3d"/);
+  assert.match(mapCanvas, /setFilter\(FALLBACK_LAYER/);
   assert.match(mapCanvas, /hide_3d/);
   assert.match(mapCanvas, /DEFAULT_BUILDING_HEIGHT/);
-  assert.match(mapCanvas, /"fill-extrusion-height": fallbackHeight/);
+  assert.match(mapCanvas, /setPaintProperty\(FALLBACK_LAYER, "fill-extrusion-height", fallbackHeight\)/);
 });
 
 test("sun position and daylight metrics share one compact information row", () => {
@@ -117,7 +118,7 @@ test("height copy distinguishes Seoul precision data from the nationwide fallbac
   assert.match(component, /서울 S-MAP 2025 정밀 높이/);
   assert.match(component, /전국 OpenFreeMap\/OSM 높이 우선/);
   assert.match(component, /미입력은 9m 추정/);
-  assert.match(mapCanvas, /NATIONWIDE_BUILDINGS_URL/);
+  assert.match(mapCanvas, /const FALLBACK_LAYER = "building-3d"/);
   assert.match(mapCanvas, /seoul-building-3d/);
 });
 
@@ -129,6 +130,16 @@ test("the live map exposes its active building source and rendered feature count
 test("panning reveals nationwide buildings while the next Seoul precision viewport loads", () => {
   assert.match(mapCanvas, /map\.on\("movestart",\s*\(\)\s*=>\s*\{[\s\S]*?precisionAbortRef\.current\?\.abort\(\);[\s\S]*?precisionRequestRef\.current \+= 1;[\s\S]*?showFallback\(\);[\s\S]*?\}\)/);
   assert.match(mapCanvas, /map\.on\("moveend",\s*\(\)\s*=>\s*void updatePrecisionBuildings\(\)\)/);
+});
+
+test("initial building paint reuses and restyles the basemap building layer before precision data arrives", () => {
+  assert.match(mapCanvas, /const FALLBACK_LAYER = "building-3d"/);
+  assert.doesNotMatch(mapCanvas, /addSource\("fallback-buildings"/);
+  assert.doesNotMatch(mapCanvas, /id: FALLBACK_LAYER/);
+  assert.match(mapCanvas, /setLayerZoomRange\(FALLBACK_LAYER, 13, 24\)/);
+  assert.match(mapCanvas, /setPaintProperty\(FALLBACK_LAYER, "fill-extrusion-height", fallbackHeight\)/);
+  assert.match(mapCanvas, /id: "solar-shadow-fill"[\s\S]*?map\.moveLayer\(FALLBACK_LAYER\);[\s\S]*?id: SEOUL_LAYER/);
+  assert.match(mapCanvas, /const initialCameraRequest = cameraRequestRef\.current;\s*applyCameraRequest\(map, initialCameraRequest\);\s*if \(!initialCameraRequest\) void updatePrecisionBuildings\(\);\s*map\.once\("idle", refreshMapData\);/);
 });
 
 test("night mode darkens the base map while keeping the daytime map clear", () => {
