@@ -47,13 +47,15 @@ function Icon({ name }: { name: "play" | "pause" }) {
 function SunLogo() {
   return (
     <svg className="sun-face" aria-hidden="true" viewBox="0 0 64 64">
-      <g className="sun-rays"><path d="M32 3v7M32 54v7M3 32h7M54 32h7M11.5 11.5l5 5M47.5 47.5l5 5M52.5 11.5l-5 5M16.5 47.5l-5 5" /></g>
-      <circle className="sun-disc" cx="32" cy="32" r="20" />
-      <circle className="sun-cheek" cx="20" cy="37" r="3" />
-      <circle className="sun-cheek" cx="44" cy="37" r="3" />
-      <path className="sun-eye left" d="M21 29c2-3 5-3 7 0" />
-      <path className="sun-eye right" d="M36 29c2-3 5-3 7 0" />
-      <path className="sun-smile" d="M25 38c4 5 10 5 14 0" />
+      <path className="sun-rays" d="M32 3v7M32 54v7M3 32h7M54 32h7M11.5 11.5l5 5M47.5 47.5l5 5M52.5 11.5l-5 5M16.5 47.5l-5 5" />
+      <circle className="sun-disc" cx="32" cy="32" r="21" />
+      <ellipse className="sun-eye left" cx="24" cy="30" rx="3.4" ry="4.8" />
+      <ellipse className="sun-eye right" cx="40" cy="30" rx="3.4" ry="4.8" />
+      <circle className="sun-eye-highlight" cx="25" cy="28.5" r="1.1" />
+      <circle className="sun-eye-highlight" cx="41" cy="28.5" r="1.1" />
+      <ellipse className="sun-cheek" cx="19.5" cy="38" rx="3.7" ry="2" />
+      <ellipse className="sun-cheek" cx="44.5" cy="38" rx="3.7" ry="2" />
+      <path className="sun-smile" d="M28 38.5c2.5 2.8 5.5 2.8 8 0" />
     </svg>
   );
 }

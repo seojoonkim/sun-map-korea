@@ -61,12 +61,32 @@ test("nationwide search is explicit, accessible, and keeps the map marker-free",
 test("the visual system is pop and the sun identity is friendly", () => {
   assert.match(component, /className="sun-face"/);
   assert.match(component, /className="sun-eye/);
+  assert.match(component, /className="sun-eye-highlight/);
   assert.match(component, /className="sun-smile"/);
+  assert.match(component, /className="sun-cheek/);
   assert.match(css, /--pink:\s*#ff6fae/i);
   assert.match(css, /--sky:\s*#72d7ff/i);
+  assert.match(css, /\.sun-eye\s*\{[^}]*fill:var\(--ink\)/);
+  assert.match(css, /\.sun-eye-highlight\s*\{[^}]*fill:#fff/);
   assert.match(css, /border-radius:\s*24px/);
+  assert.match(appIcon, /class="sun-eye-highlight"/);
   assert.match(appIcon, /class="sun-smile"/);
   assert.match(appIcon, /#ff6fae/i);
+});
+
+test("essential interface copy stays readable on desktop and mobile", () => {
+  assert.match(css, /\.brand-block p\s*\{[^}]*font-size:11px/);
+  assert.match(css, /\.geo-search input\s*\{[^}]*font-size:15px/);
+  assert.match(css, /\.readout-values span\s*\{[^}]*font-size:11px/);
+  assert.match(css, /\.source\s*\{[^}]*font-size:10px/);
+  assert.match(css, /\.ticks\s*\{[^}]*font:9px/);
+  const mobile = css.slice(css.indexOf("@media (max-width:760px)"));
+  assert.match(mobile, /\.brand-block p\s*\{[^}]*font-size:9px/);
+  assert.match(mobile, /\.brand-block strong\s*\{[^}]*font-size:13px/);
+  assert.match(mobile, /\.geo-search input\s*\{[^}]*font-size:14px/);
+  assert.match(mobile, /\.readout-heading h1\s*\{[^}]*font-size:16px/);
+  assert.match(mobile, /\.readout-values span\s*\{[^}]*font-size:10px/);
+  assert.match(mobile, /\.readout-values strong\s*\{[^}]*font-size:15px/);
 });
 
 test("all ordinary nationwide OpenFreeMap footprints remain eligible for 3D rendering", () => {
