@@ -103,6 +103,76 @@ export async function loadSeoulBuildingPhases<T>({
   }
 }
 
+export type SeoulBuildingCellLoader<T> = {
+  cells: BuildingBounds[];
+  center: [number, number];
+  cache: Map<string, T>;
+  load: (cell: BuildingBounds) => Promise<T>;
+  paint: (values: T[]) => void;
+  concurrency?: number;
+};
+
+export async function loadSeoulBuildingCells<T>({
+  cells,
+  center,
+  cache,
+  load,
+  paint,
+  concurrency = 6,
+}: SeoulBuildingCellLoader<T>) {
+  const keyFor = (cell: BuildingBounds) => cell.join(",");
+  const ordered = [...cells].sort((a, b) => {
+    const distance = (cell: BuildingBounds) => {
+      const longitude = (cell[0] + cell[2]) / 2 - center[0];
+      const latitude = (cell[1] + cell[3]) / 2 - center[1];
+      return longitude * longitude + latitude * latitude;
+    };
+    return distance(a) - distance(b);
+  });
+  const values = new Map<string, T>();
+  for (const cell of ordered) {
+    const key = keyFor(cell);
+    const cached = cache.get(key);
+    if (cached === undefined) continue;
+    cache.delete(key);
+    cache.set(key, cached);
+    values.set(key, cached);
+  }
+  const reused = values.size;
+  if (reused > 0) paint([...values.values()]);
+
+  const pending = ordered.filter((cell) => !values.has(keyFor(cell)));
+  let loaded = 0;
+  let lastPaintedCount = reused;
+  const accept = (cell: BuildingBounds, value: T) => {
+    const key = keyFor(cell);
+    cache.set(key, value);
+    values.set(key, value);
+    loaded += 1;
+    if (values.size === 1 || loaded % 4 === 0 || loaded === pending.length) {
+      paint([...values.values()]);
+      lastPaintedCount = values.size;
+    }
+  };
+
+  let cursor = 0;
+  if (reused === 0 && pending.length > 0) {
+    const priorityCell = pending[cursor++];
+    accept(priorityCell, await load(priorityCell));
+  }
+  const worker = async () => {
+    while (cursor < pending.length) {
+      const cell = pending[cursor++];
+      accept(cell, await load(cell));
+    }
+  };
+  const remaining = pending.length - cursor;
+  const workerCount = Math.min(Math.max(1, concurrency), remaining);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  if (values.size > 0 && lastPaintedCount !== values.size) paint([...values.values()]);
+  return { loaded, reused };
+}
+
 export function splitSeoulBuildingBounds(bounds: BuildingBounds): BuildingBounds[] {
   const [west, south, east, north] = bounds;
   const axisCells = (start: number, end: number, origin: number, ceiling: number) => {

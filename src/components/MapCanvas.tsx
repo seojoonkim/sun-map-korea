@@ -9,9 +9,9 @@ import {
   buildSeoulBuildingRequest,
   expandSeoulBuildingBounds,
   isPotentialSeoulViewport,
-  loadSeoulBuildingPhases,
+  loadSeoulBuildingCells,
   normalizeSeoulBuildings,
-  prioritySeoulBuildingBounds,
+  splitSeoulBuildingBounds,
   type BuildingBounds,
 } from "@/lib/building-sources";
 import {
@@ -40,6 +40,9 @@ const BASE_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const FALLBACK_LAYER = "building-3d";
 const SEOUL_LAYER = "seoul-building-3d";
 const NIGHT_TINT_LAYER = "night-map-tint";
+const BUILDING_COLORS = ["#f6d6ad", "#edc39f", "#dda982"];
+const SHADOW_COLOR = "#6577b3";
+const MAX_PRECISION_CACHE_CELLS = 48;
 
 type MapCanvasProps = {
   solar: SolarPosition;
@@ -66,6 +69,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
   const precisionAbortRef = useRef<AbortController | null>(null);
   const precisionRequestRef = useRef(0);
   const precisionCoverageRef = useRef<BuildingBounds | null>(null);
+  const precisionCellCacheRef = useRef(new Map<string, FeatureCollection<Polygon | MultiPolygon>>());
   const seoulPrecisionActiveRef = useRef(false);
   const solarRef = useRef(solar);
   const cameraRequestRef = useRef(cameraRequest);
@@ -193,38 +197,52 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
 
       setBuildingLoading(true);
       const requestBounds = expandSeoulBuildingBounds(viewportBounds);
-      const priorityBounds = prioritySeoulBuildingBounds([center.lng, center.lat]);
+      const cells = splitSeoulBuildingBounds(requestBounds);
       const controller = new AbortController();
       precisionAbortRef.current = controller;
       const requestId = ++precisionRequestRef.current;
-      const fetchPrecisionBuildings = async (requestBounds: BuildingBounds) => {
-        const response = await fetch(buildSeoulBuildingRequest(requestBounds), { signal: controller.signal });
+      const fetchPrecisionBuildings = async (cell: BuildingBounds) => {
+        const response = await fetch(buildSeoulBuildingRequest(cell), { signal: controller.signal });
         if (!response.ok) throw new Error(`Seoul buildings ${response.status}`);
         const collection = await response.json() as FeatureCollection<Polygon | MultiPolygon>;
         return normalizeSeoulBuildings(collection.features);
       };
-      const paintPrecisionBuildings = (normalized: FeatureCollection<Polygon | MultiPolygon>) => {
-        if (requestId !== precisionRequestRef.current || normalized.features.length === 0) return false;
-        (map.getSource("seoul-buildings") as GeoJSONSource).setData(normalized);
+      const paintPrecisionBuildings = (collections: FeatureCollection<Polygon | MultiPolygon>[]) => {
+        if (requestId !== precisionRequestRef.current) return;
+        const unique = new Map<string, FeatureCollection<Polygon | MultiPolygon>["features"][number]>();
+        for (const feature of collections.flatMap((collection) => collection.features)) {
+          const key = String(feature.id ?? feature.properties?.id ?? JSON.stringify(feature.geometry));
+          unique.set(key, feature);
+        }
+        if (unique.size === 0) return;
+        (map.getSource("seoul-buildings") as GeoJSONSource).setData({
+          type: "FeatureCollection",
+          features: [...unique.values()],
+        });
         map.setLayoutProperty(FALLBACK_LAYER, "visibility", "visible");
         map.setLayoutProperty(SEOUL_LAYER, "visibility", "visible");
         seoulPrecisionActiveRef.current = true;
         map.once("idle", refreshMapData);
-        return true;
       };
       try {
-        const { viewportPainted } = await loadSeoulBuildingPhases({
-          loadPriority: buildingBoundsContain(precisionCoverageRef.current, priorityBounds)
-            ? undefined
-            : () => fetchPrecisionBuildings(priorityBounds),
-          loadViewport: () => fetchPrecisionBuildings(requestBounds),
+        await loadSeoulBuildingCells({
+          cells,
+          center: [center.lng, center.lat],
+          cache: precisionCellCacheRef.current,
+          load: fetchPrecisionBuildings,
           paint: paintPrecisionBuildings,
         });
-        if (viewportPainted && requestId === precisionRequestRef.current) {
+        if (requestId === precisionRequestRef.current) {
           precisionCoverageRef.current = requestBounds;
+          while (precisionCellCacheRef.current.size > MAX_PRECISION_CACHE_CELLS) {
+            const oldest = precisionCellCacheRef.current.keys().next().value;
+            if (oldest === undefined) break;
+            precisionCellCacheRef.current.delete(oldest);
+          }
         }
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
+        controller.abort();
         if (!seoulPrecisionActiveRef.current) showFallback();
         refreshMapData();
       } finally {
@@ -253,7 +271,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       map.setFilter(FALLBACK_LAYER, ["!", ["==", ["get", "hide_3d"], true]]);
       map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-color", [
         "interpolate", ["linear"], fallbackHeight,
-        4, "#dce2e4", 30, "#cbd3d6", 100, "#b8c3c7",
+        4, BUILDING_COLORS[0], 30, BUILDING_COLORS[1], 100, BUILDING_COLORS[2],
       ]);
       map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-height", fallbackHeight);
       map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-base", ["coalesce", ["get", "render_min_height"], 0]);
@@ -276,11 +294,11 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
         type: "fill",
         source: "solar-shadow",
         paint: {
-          "fill-color": "#394653",
+          "fill-color": SHADOW_COLOR,
           "fill-opacity": [
             "interpolate", ["linear"], ["zoom"],
-            13, ["*", 0.45, ["coalesce", ["get", "strength"], 0.2]],
-            15.1, ["coalesce", ["get", "strength"], 0.48],
+            13, ["*", 0.65, ["coalesce", ["get", "strength"], 0.2]],
+            15.1, ["*", 1.25, ["coalesce", ["get", "strength"], 0.48]],
           ],
         },
       });
@@ -292,7 +310,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
         minzoom: 13,
         layout: { visibility: "none" },
         paint: {
-          "fill-extrusion-color": ["interpolate", ["linear"], ["get", "height"], 4, "#dce2e4", 30, "#cbd3d6", 100, "#b8c3c7"],
+          "fill-extrusion-color": ["interpolate", ["linear"], ["get", "height"], 4, BUILDING_COLORS[0], 30, BUILDING_COLORS[1], 100, BUILDING_COLORS[2]],
           "fill-extrusion-height": ["get", "height"],
           "fill-extrusion-base": ["coalesce", ["get", "minHeight"], 0],
           "fill-extrusion-opacity": compactMap ? 0.9 : 0.94,

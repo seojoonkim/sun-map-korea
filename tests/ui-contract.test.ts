@@ -169,7 +169,7 @@ test("panning and precision loading keep nationwide buildings visible without co
   assert.match(moveStart, /precisionAbortRef\.current\?\.abort\(\);[\s\S]*?precisionRequestRef\.current \+= 1/);
   assert.doesNotMatch(moveStart, /showFallback\(\)/);
   assert.match(mapCanvas, /map\.on\("moveend",\s*\(\)\s*=>\s*\{[\s\S]*?void updatePrecisionBuildings\(\)[\s\S]*?\}\)/);
-  assert.match(mapCanvas, /setData\(normalized\);\s*map\.setLayoutProperty\(FALLBACK_LAYER, "visibility", "visible"\);\s*map\.setLayoutProperty\(SEOUL_LAYER, "visibility", "visible"\)/);
+  assert.match(mapCanvas, /setData\(\{[\s\S]*?features: \[\.\.\.unique\.values\(\)\][\s\S]*?map\.setLayoutProperty\(FALLBACK_LAYER, "visibility", "visible"\);\s*map\.setLayoutProperty\(SEOUL_LAYER, "visibility", "visible"\)/);
 });
 
 test("nearby panning reuses prefetched precision buildings instead of waiting for another request", () => {
@@ -178,11 +178,11 @@ test("nearby panning reuses prefetched precision buildings instead of waiting fo
   assert.match(mapCanvas, /expandSeoulBuildingBounds\(viewportBounds\)/);
 });
 
-test("a real nearby place jump paints a target-centered precision patch before the slow full response", () => {
-  assert.match(mapCanvas, /prioritySeoulBuildingBounds/);
-  assert.match(mapCanvas, /loadSeoulBuildingPhases/);
-  assert.match(mapCanvas, /fetchPrecisionBuildings\(priorityBounds\)/);
-  assert.match(mapCanvas, /loadViewport:\s*\(\)\s*=>\s*fetchPrecisionBuildings\(requestBounds\)/);
+test("a real nearby place jump paints reusable center-first cells before full coverage", () => {
+  assert.match(mapCanvas, /splitSeoulBuildingBounds\(requestBounds\)/);
+  assert.match(mapCanvas, /loadSeoulBuildingCells/);
+  assert.match(mapCanvas, /center:\s*\[center\.lng, center\.lat\]/);
+  assert.match(mapCanvas, /precisionCellCacheRef\.current/);
   assert.match(mapCanvas, /duration:\s*350/);
 });
 
@@ -233,4 +233,28 @@ test("shadow paint preserves solar-elevation strength at every map zoom", () => 
   assert.match(mapCanvas, /"fill-opacity":\s*\[\s*"interpolate",\s*\["linear"\],\s*\["zoom"\][\s\S]*?\["get",\s*"strength"\]/);
   assert.doesNotMatch(mapCanvas, /"fill-opacity":\s*\["step",\s*\["zoom"\],\s*0\.2/);
   assert.match(mapCanvas, /dataset\.shadowStrength\s*=\s*String\(shadowOpacityForElevation\(elevation\)\)/);
+});
+
+test("warm pastel buildings stay visually distinct from cool pastel shadows", () => {
+  assert.match(mapCanvas, /const BUILDING_COLORS = \["#f6d6ad", "#edc39f", "#dda982"\]/i);
+  assert.match(mapCanvas, /const SHADOW_COLOR = "#6577b3"/i);
+  assert.match(mapCanvas, /"fill-color": SHADOW_COLOR/);
+  assert.match(mapCanvas, /4, BUILDING_COLORS\[0\], 30, BUILDING_COLORS\[1\], 100, BUILDING_COLORS\[2\]/);
+});
+
+test("precision buildings load by reusable center-first cells instead of one oversized viewport payload", () => {
+  assert.match(mapCanvas, /loadSeoulBuildingCells/);
+  assert.match(mapCanvas, /splitSeoulBuildingBounds\(requestBounds\)/);
+  assert.match(mapCanvas, /precisionCellCacheRef/);
+  assert.doesNotMatch(mapCanvas, /loadViewport:\s*\(\)\s*=>\s*fetchPrecisionBuildings\(requestBounds\)/);
+});
+
+test("selected place names seed the locality cache before map movement", () => {
+  const selectPlace = component.slice(
+    component.indexOf("function selectPlace"),
+    component.indexOf("function viewKorea"),
+  );
+  assert.match(component, /localityCacheKey/);
+  assert.match(selectPlace, /localityCache\.current\.set\(localityCacheKey\(place\.coordinates\), place\.label\)/);
+  assert.ok(selectPlace.indexOf("localityCache.current.set") < selectPlace.indexOf("setCoordinates"));
 });

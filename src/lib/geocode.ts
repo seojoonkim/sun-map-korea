@@ -51,6 +51,10 @@ export function formatLocality(address: AddressParts): string {
   return [...new Set([province, city, neighborhood].filter(Boolean))].join(" · ") || "대한민국";
 }
 
+export function localityCacheKey(coordinates: [number, number]) {
+  return `${coordinates[0].toFixed(2)}:${coordinates[1].toFixed(2)}`;
+}
+
 export async function searchKorea(query: string, signal?: AbortSignal): Promise<PlaceResult[]> {
   const params = new URLSearchParams({
     q: query,

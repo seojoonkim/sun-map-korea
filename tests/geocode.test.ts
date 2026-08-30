@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatLocality, parseSearchResults } from "../src/lib/geocode";
+import { formatLocality, localityCacheKey, parseSearchResults } from "../src/lib/geocode";
 
 test("Korean geocoder results are normalized and deduplicated", () => {
   const results = parseSearchResults([
@@ -20,4 +20,10 @@ test("reverse geocoder address becomes a compact Korean locality", () => {
   assert.equal(formatLocality({ province: "강원특별자치도", city: "강릉시", suburb: "교동" }), "강원특별자치도 · 강릉시 · 교동");
   assert.equal(formatLocality({ state: "전라남도", county: "신안군" }), "전라남도 · 신안군");
   assert.equal(formatLocality({}), "대한민국");
+});
+
+test("nearby map centers share a stable locality cache key", () => {
+  assert.equal(localityCacheKey([127.08017, 37.53586]), "127.08:37.54");
+  assert.equal(localityCacheKey([127.0812, 37.5364]), "127.08:37.54");
+  assert.notEqual(localityCacheKey([127.094, 37.5364]), "127.08:37.54");
 });

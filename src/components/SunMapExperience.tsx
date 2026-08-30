@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import GeoSearch from "./GeoSearch";
 import type { PlaceResult } from "@/lib/geocode";
-import { reverseKoreaLocation } from "@/lib/geocode";
+import { localityCacheKey, reverseKoreaLocation } from "@/lib/geocode";
 import {
   dateAtKst,
   daylightHours,
@@ -69,7 +69,7 @@ export default function SunMapExperience() {
   useEffect(() => setDate(todayInSeoul()), []);
 
   useEffect(() => {
-    const key = `${coordinates[0].toFixed(2)}:${coordinates[1].toFixed(2)}`;
+    const key = localityCacheKey(coordinates);
     const cached = localityCache.current.get(key);
     if (cached) {
       setCurrentLocation(cached);
@@ -120,6 +120,7 @@ export default function SunMapExperience() {
 
   function selectPlace(place: PlaceResult) {
     localityAbortRef.current?.abort();
+    localityCache.current.set(localityCacheKey(place.coordinates), place.label);
     setCoordinates(place.coordinates);
     setCurrentLocation(place.label);
     setCameraRequest({ id: Date.now(), mode: "place", center: place.coordinates });

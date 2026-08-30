@@ -11,6 +11,7 @@ import {
   splitSeoulBuildingBounds,
   normalizeSeoulBuildings,
   loadSeoulBuildingPhases,
+  loadSeoulBuildingCells,
 } from "../src/lib/building-sources";
 
 const polygon: Polygon = {
@@ -145,4 +146,54 @@ test("does not let a late priority patch overwrite an already-painted viewport",
   resolvePriority("center");
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(painted, ["viewport:screen"]);
+});
+
+test("loads canonical building cells center-first and paints progressively", async () => {
+  const cells = splitSeoulBuildingBounds([127.05, 37.50, 127.09, 37.54]);
+  const started: string[] = [];
+  const painted: number[] = [];
+  const cache = new Map<string, string>();
+
+  const result = await loadSeoulBuildingCells({
+    cells,
+    center: [127.07, 37.52],
+    cache,
+    concurrency: 1,
+    load: async (cell) => {
+      started.push(cell.join(","));
+      return cell.join(",");
+    },
+    paint: (values) => painted.push(values.length),
+  });
+
+  const first = cells.find(([west, south, east, north]) => west <= 127.07 && east >= 127.07 && south <= 37.52 && north >= 37.52);
+  assert.equal(started[0], first?.join(","));
+  assert.equal(painted[0], 1);
+  assert.equal(painted.at(-1), cells.length);
+  assert.equal(result.loaded, cells.length);
+});
+
+test("reuses cached building cells and only fetches missing coverage", async () => {
+  const cells = splitSeoulBuildingBounds([127.05, 37.50, 127.09, 37.54]);
+  const firstKey = cells[0].join(",");
+  const cache = new Map([[firstKey, "cached"]]);
+  const started: string[] = [];
+  const snapshots: string[][] = [];
+
+  const result = await loadSeoulBuildingCells({
+    cells,
+    center: [127.07, 37.52],
+    cache,
+    concurrency: 2,
+    load: async (cell) => {
+      started.push(cell.join(","));
+      return cell.join(",");
+    },
+    paint: (values) => snapshots.push(values),
+  });
+
+  assert.equal(started.includes(firstKey), false);
+  assert.equal(started.length, cells.length - 1);
+  assert.equal(snapshots[0].includes("cached"), true);
+  assert.equal(result.reused, 1);
 });
