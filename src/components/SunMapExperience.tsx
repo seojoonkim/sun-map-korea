@@ -66,6 +66,7 @@ export default function SunMapExperience() {
   const [currentLocation, setCurrentLocation] = useState("서울 · 강남");
   const [cameraRequest, setCameraRequest] = useState<CameraRequest | null>(null);
   const localityCache = useRef(new Map<string, string>());
+  const localityAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => setDate(todayInSeoul()), []);
 
@@ -76,8 +77,10 @@ export default function SunMapExperience() {
       setCurrentLocation(cached);
       return;
     }
+    localityAbortRef.current?.abort();
     const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
+    localityAbortRef.current = controller;
+    void (async () => {
       try {
         const locality = await reverseKoreaLocation(coordinates, controller.signal);
         localityCache.current.set(key, locality);
@@ -85,10 +88,10 @@ export default function SunMapExperience() {
       } catch (error) {
         if ((error as Error).name !== "AbortError") setCurrentLocation("대한민국");
       }
-    }, 850);
+    })();
     return () => {
-      window.clearTimeout(timer);
       controller.abort();
+      if (localityAbortRef.current === controller) localityAbortRef.current = null;
     };
   }, [coordinates]);
 
@@ -118,6 +121,8 @@ export default function SunMapExperience() {
   ];
 
   function selectPlace(place: PlaceResult) {
+    localityAbortRef.current?.abort();
+    setCoordinates(place.coordinates);
     setCurrentLocation(place.label);
     setCameraRequest({ id: Date.now(), mode: "place", center: place.coordinates });
   }

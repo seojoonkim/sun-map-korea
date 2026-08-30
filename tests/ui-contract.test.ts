@@ -134,7 +134,7 @@ test("panning and precision loading keep nationwide buildings visible without co
   );
   assert.match(moveStart, /precisionAbortRef\.current\?\.abort\(\);[\s\S]*?precisionRequestRef\.current \+= 1/);
   assert.doesNotMatch(moveStart, /showFallback\(\)/);
-  assert.match(mapCanvas, /map\.on\("moveend",\s*\(\)\s*=>\s*void updatePrecisionBuildings\(\)\)/);
+  assert.match(mapCanvas, /map\.on\("moveend",\s*\(\)\s*=>\s*\{[\s\S]*?void updatePrecisionBuildings\(\)[\s\S]*?\}\)/);
   assert.match(mapCanvas, /setData\(normalized\);\s*map\.setLayoutProperty\(FALLBACK_LAYER, "visibility", "visible"\);\s*map\.setLayoutProperty\(SEOUL_LAYER, "visibility", "visible"\)/);
 });
 
@@ -149,6 +149,20 @@ test("a real nearby place jump paints a target-centered precision patch before t
   assert.match(mapCanvas, /await fetchPrecisionBuildings\(priorityBounds/);
   assert.match(mapCanvas, /await fetchPrecisionBuildings\(requestBounds/);
   assert.match(mapCanvas, /duration:\s*350/);
+});
+
+test("a selected place updates coordinates and locality before precision buildings finish", () => {
+  const selectPlace = component.slice(
+    component.indexOf("function selectPlace"),
+    component.indexOf("function viewKorea"),
+  );
+  assert.match(selectPlace, /localityAbortRef\.current\?\.abort\(\)/);
+  assert.match(selectPlace, /setCoordinates\(place\.coordinates\)/);
+  assert.match(selectPlace, /setCurrentLocation\(place\.label\)/);
+  assert.ok(selectPlace.indexOf("setCoordinates") < selectPlace.indexOf("setCameraRequest"));
+
+  assert.match(mapCanvas, /map\.on\("moveend",\s*\(\)\s*=>\s*\{[\s\S]*?onCenterChange\(\[center\.lng, center\.lat\]\)[\s\S]*?void updatePrecisionBuildings\(\)/);
+  assert.doesNotMatch(component, /window\.setTimeout\(async \(\) => \{[\s\S]*?reverseKoreaLocation/);
 });
 
 test("initial building paint reuses and restyles the basemap building layer before precision data arrives", () => {

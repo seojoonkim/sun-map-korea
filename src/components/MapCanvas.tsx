@@ -272,7 +272,11 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       precisionAbortRef.current?.abort();
       precisionRequestRef.current += 1;
     });
-    map.on("moveend", () => void updatePrecisionBuildings());
+    map.on("moveend", () => {
+      const center = map.getCenter();
+      onCenterChange([center.lng, center.lat]);
+      void updatePrecisionBuildings();
+    });
 
     return () => {
       precisionAbortRef.current?.abort();
