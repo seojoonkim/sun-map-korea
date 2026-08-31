@@ -90,10 +90,10 @@ test("map-center locality changes remain available to assistive technology", () 
 
 test("essential interface copy stays readable on desktop and mobile", () => {
   assert.match(css, /\.brand-block p\s*\{[^}]*font-size:11px/);
-  assert.match(css, /\.geo-search input\s*\{[^}]*font-size:15px/);
-  assert.match(css, /\.readout-values span\s*\{[^}]*font-size:11px/);
-  assert.match(css, /\.source\s*\{[^}]*font-size:10px/);
-  assert.match(css, /\.ticks\s*\{[^}]*font:9px/);
+  assert.match(css, /\.geo-search input\s*\{[^}]*font-size:16px/);
+  assert.match(css, /\.readout-values span\s*\{[^}]*font-size:12px/);
+  assert.match(css, /\.source\s*\{[^}]*font-size:11px/);
+  assert.match(css, /\.ticks\s*\{[^}]*font:10px/);
   const mobile = css.slice(css.indexOf("@media (max-width:760px)"));
   assert.match(mobile, /\.brand-block p\s*\{[^}]*font-size:9px/);
   assert.match(mobile, /\.brand-block strong\s*\{[^}]*font-size:13px/);
@@ -245,6 +245,37 @@ test("light pink buildings use the exact opposite hue from teal shadows", () => 
   assert.match(mapCanvas, /Complementary hues: building pink 345°, shadow teal 165°/);
   assert.match(mapCanvas, /"fill-color": SHADOW_COLOR/);
   assert.match(mapCanvas, /4, BUILDING_COLORS\[0\], 30, BUILDING_COLORS\[1\], 100, BUILDING_COLORS\[2\]/);
+});
+
+test("building walls use the live sun direction for directional light", () => {
+  assert.match(mapCanvas, /function applySolarBuildingLight/);
+  assert.match(mapCanvas, /map\.setLight\(\{/);
+  assert.match(mapCanvas, /position:\s*\[1\.5,\s*azimuth,\s*polarAngle\]/);
+  assert.match(mapCanvas, /dataset\.solarLightAzimuth/);
+  assert.match(mapCanvas, /dataset\.solarLightElevation/);
+  assert.match(mapCanvas, /applySolarBuildingLight\(map, solar\)/);
+  assert.match(mapCanvas, /applySolarBuildingLight\(map, solarRef\.current\)/);
+});
+
+test("desktop map gives a subtle control-drag rotation hint", () => {
+  assert.match(component, /className="map-rotate-hint"/);
+  assert.match(component, /Control/);
+  assert.match(component, /마우스 왼쪽 버튼/);
+  assert.match(css, /\.map-rotate-hint\s*\{/);
+  const tabletDesktop = css.slice(css.indexOf("@media (max-width:1180px) and (min-width:761px)"), css.indexOf("@media (max-width:760px)"));
+  assert.match(tabletDesktop, /\.map-rotate-hint\s*\{[^}]*bottom:158px/);
+  const mobile = css.slice(css.indexOf("@media (max-width:760px)"));
+  assert.match(mobile, /\.map-rotate-hint\s*\{[^}]*display:none/);
+});
+
+test("desktop webview scales panels and typography without crowding the map", () => {
+  assert.match(css, /\.geo-search input\s*\{[^}]*font-size:16px/);
+  assert.match(css, /\.readout-values span\s*\{[^}]*font-size:12px/);
+  assert.match(css, /\.readout-values strong\s*\{[^}]*font:[^;]*19px/);
+  assert.match(css, /\.source\s*\{[^}]*font-size:11px/);
+  const tabletDesktop = css.slice(css.indexOf("@media (max-width:1180px) and (min-width:761px)"), css.indexOf("@media (max-width:760px)"));
+  assert.match(tabletDesktop, /\.topbar\s*\{[^}]*width:min\(560px/);
+  assert.match(tabletDesktop, /\.solar-readout\s*\{[^}]*width:400px/);
 });
 
 test("precision buildings load by reusable center-first cells instead of one oversized viewport payload", () => {

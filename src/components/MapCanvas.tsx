@@ -61,6 +61,19 @@ type RenderedBuilding = {
   geometry: Polygon | MultiPolygon;
 };
 
+function applySolarBuildingLight(map: MapLibreMap, solar: SolarPosition) {
+  const azimuth = solar.azimuth;
+  const polarAngle = solar.isDaylight ? Math.max(18, 90 - solar.elevation) : 90;
+  map.getContainer().dataset.solarLightAzimuth = azimuth.toFixed(2);
+  map.getContainer().dataset.solarLightElevation = solar.elevation.toFixed(2);
+  map.setLight({
+    anchor: "map",
+    position: [1.5, azimuth, polarAngle],
+    color: solar.isDaylight ? "#fff4d6" : "#9eb4cc",
+    intensity: solar.isDaylight ? 0.72 : 0.24,
+  });
+}
+
 export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapCanvasProps) {
   const [buildingLoading, setBuildingLoading] = useState(false);
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -252,6 +265,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
     };
 
     map.on("style.load", () => {
+      applySolarBuildingLight(map, solarRef.current);
       for (const layer of map.getStyle().layers) {
         if (
           layer.id !== FALLBACK_LAYER
@@ -355,6 +369,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       map.setPaintProperty("night-map-tint", "fill-opacity", solar.isDaylight ? 0 : 0.58);
     }
     if (mapContainer.current) mapContainer.current.dataset.theme = solar.isDaylight ? "day" : "night";
+    if (map?.isStyleLoaded()) applySolarBuildingLight(map, solar);
     scheduleShadowUpdate(35);
   }, [solar, scheduleShadowUpdate]);
 
