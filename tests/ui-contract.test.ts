@@ -11,12 +11,9 @@ const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
 const layout = readFileSync(join(process.cwd(), "src/app/layout.tsx"), "utf8");
 const openGraphImage = readFileSync(join(process.cwd(), "src/app/opengraph-image.tsx"), "utf8");
 
-test("map-first experience keeps map center separate from the selected analysis point", () => {
-  assert.doesNotMatch(component, /LANDMARKS|place-panel|search-box/);
-  assert.match(component, /mapCenter/);
-  assert.match(component, /selectedPoint/);
+test("map-first experience removes landmark picking surfaces", () => {
+  assert.doesNotMatch(component, /LANDMARKS|place-panel|search-box|map-marker|selected-point/);
   assert.match(component, /지도 중심/);
-  assert.match(component, /분석 지점/);
 });
 
 test("date is a first-class labeled control", () => {
@@ -58,38 +55,12 @@ test("nationwide exploration replaces the Gangnam-locked map", () => {
   assert.doesNotMatch(mapCanvas, /cartocdn|API KEY REQUIRED/i);
 });
 
-test("nationwide search is explicit and accessible alongside selectable map points", () => {
+test("nationwide search is explicit, accessible, and keeps the map marker-free", () => {
   assert.match(geoSearch, /role="search"/);
   assert.match(geoSearch, /전국 주소 또는 지역 검색/);
   assert.match(geoSearch, /대한민국 전체 보기/);
   assert.match(geoSearch, /aria-live="polite"/);
   assert.doesNotMatch(geoSearch, /map-marker|selected-point/);
-  assert.match(mapCanvas, /onSelectPoint/);
-});
-
-test("live map integrates point reports, comparisons, persistence, sharing, and shadow accumulation", () => {
-  assert.match(component, /<PointSetup/);
-  assert.match(component, /<ReportCard/);
-  assert.match(component, /<SunTimeline/);
-  assert.match(component, /<ConfidenceDetails/);
-  assert.match(component, /new Worker\(new URL\("\.\.\/workers\/direct-sun\.worker\.ts", import\.meta\.url\)/);
-  assert.match(component, /requestId/);
-  assert.match(component, /response\.requestId !== activeRequestRef\.current/);
-  assert.match(component, /\/api\/buildings\?bounds=/);
-  assert.match(component, /projectAnalysisBuildings/);
-  assert.match(component, /addComparisonPoint/);
-  assert.match(component, /comparisonPoints\.length >= 4/);
-  assert.match(component, /createSavedAnalysesStore\(window\.localStorage\)/);
-  assert.match(component, /encodeSharedAnalysis/);
-  assert.match(component, /decodeSharedAnalysis\(window\.location\.hash\)/);
-  assert.match(component, /누적 그림자/);
-  assert.match(mapCanvas, /analysis-points/);
-  assert.match(mapCanvas, /accumulated-shadow/);
-  assert.match(mapCanvas, /onSelectPoint/);
-  assert.match(mapCanvas, /selectedPoint/);
-  assert.match(mapCanvas, /comparisonPoints/);
-  assert.match(mapCanvas, /transformRequest/);
-  assert.match(mapCanvas, /fonts\.openmaptiles\.org/);
 });
 
 test("the visual system is minimal, unified, and the sun identity stays friendly", () => {
@@ -234,9 +205,9 @@ test("a selected place updates coordinates and locality before precision buildin
     component.indexOf("function viewKorea"),
   );
   assert.match(selectPlace, /localityAbortRef\.current\?\.abort\(\)/);
-  assert.match(selectPlace, /setMapCenter\(place\.coordinates\)/);
+  assert.match(selectPlace, /setCoordinates\(place\.coordinates\)/);
   assert.match(selectPlace, /setCurrentLocation\(place\.label\)/);
-  assert.ok(selectPlace.indexOf("setMapCenter") < selectPlace.indexOf("setCameraRequest"));
+  assert.ok(selectPlace.indexOf("setCoordinates") < selectPlace.indexOf("setCameraRequest"));
 
   assert.match(mapCanvas, /map\.on\("moveend",\s*\(\)\s*=>\s*\{[\s\S]*?onCenterChange\(\[center\.lng, center\.lat\]\)[\s\S]*?void updatePrecisionBuildings\(\)/);
   assert.doesNotMatch(component, /window\.setTimeout\(async \(\) => \{[\s\S]*?reverseKoreaLocation/);
@@ -290,5 +261,5 @@ test("selected place names seed the locality cache before map movement", () => {
   );
   assert.match(component, /localityCacheKey/);
   assert.match(selectPlace, /localityCache\.current\.set\(localityCacheKey\(place\.coordinates\), place\.label\)/);
-  assert.ok(selectPlace.indexOf("localityCache.current.set") < selectPlace.indexOf("setMapCenter"));
+  assert.ok(selectPlace.indexOf("localityCache.current.set") < selectPlace.indexOf("setCoordinates"));
 });
