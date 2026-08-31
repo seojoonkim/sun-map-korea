@@ -140,3 +140,127 @@ export function createBuildingShadows(
   });
   return { type: "FeatureCollection", features };
 }
+
+type WallShadowProperties = {
+  height: number;
+  minHeight: number;
+  segmentHeight: number;
+  wallShade: "sunlit" | "occluded";
+  sourceHeight: number;
+};
+
+type BuildingMetric = {
+  feature: Feature<Polygon>;
+  index: number;
+  x: number;
+  y: number;
+  radius: number;
+  height: number;
+  minHeight: number;
+};
+
+function withAltitude(coordinates: Polygon["coordinates"], altitude: number): Polygon["coordinates"] {
+  return coordinates.map((ring) => ring.map(([lng, lat]) => [lng, lat, altitude]));
+}
+
+/** Split receiver walls at the height reached by a neighbouring building's shadow. */
+export function createWallShadowSegments(
+  buildings: FeatureCollection<Polygon>,
+  sunAzimuth: number,
+  elevation: number,
+): FeatureCollection<Polygon, WallShadowProperties> {
+  if (buildings.features.length === 0) return { type: "FeatureCollection", features: [] };
+  const origin = buildings.features[0].geometry.coordinates[0][0] as [number, number];
+  const latScale = Math.PI * EARTH_RADIUS / 180;
+  const lngScale = latScale * Math.cos(origin[1] * Math.PI / 180);
+  const cellSize = 48;
+  const metrics: BuildingMetric[] = buildings.features.map((feature, index) => {
+    const ring = feature.geometry.coordinates[0].slice(0, -1) as [number, number][];
+    const center = ring.reduce((sum, [lng, lat]) => [sum[0] + lng, sum[1] + lat], [0, 0]);
+    const lng = center[0] / ring.length;
+    const lat = center[1] / ring.length;
+    const x = (lng - origin[0]) * lngScale;
+    const y = (lat - origin[1]) * latScale;
+    const radius = Math.max(3, ...ring.map(([px, py]) => Math.hypot(
+      (px - lng) * lngScale,
+      (py - lat) * latScale,
+    )));
+    const height = Math.max(DEFAULT_BUILDING_HEIGHT, Number(feature.properties?.height ?? DEFAULT_BUILDING_HEIGHT));
+    const minHeight = Math.max(0, Number(feature.properties?.minHeight ?? 0));
+    return { feature, index, x, y, radius, height, minHeight };
+  });
+  const grid = new Map<string, BuildingMetric[]>();
+  const gridKey = (x: number, y: number) => `${Math.floor(x / cellSize)}:${Math.floor(y / cellSize)}`;
+  for (const metric of metrics) {
+    const key = gridKey(metric.x, metric.y);
+    const bucket = grid.get(key) ?? [];
+    bucket.push(metric);
+    grid.set(key, bucket);
+  }
+
+  const shadowTopByReceiver = new Map<number, number>();
+  if (elevation > 1) {
+    const elevationRadians = elevation * Math.PI / 180;
+    const shadowBearing = (sunAzimuth + 180) * Math.PI / 180;
+    const dx = Math.sin(shadowBearing);
+    const dy = Math.cos(shadowBearing);
+    for (const blocker of metrics) {
+      const length = Math.min(420, blocker.height / Math.tan(elevationRadians));
+      const visited = new Set<string>();
+      for (let distance = cellSize * 0.5; distance <= length + cellSize; distance += cellSize * 0.7) {
+        const sampleX = blocker.x + dx * distance;
+        const sampleY = blocker.y + dy * distance;
+        const gx = Math.floor(sampleX / cellSize);
+        const gy = Math.floor(sampleY / cellSize);
+        for (let ox = -1; ox <= 1; ox += 1) {
+          for (let oy = -1; oy <= 1; oy += 1) {
+            const key = `${gx + ox}:${gy + oy}`;
+            if (visited.has(key)) continue;
+            visited.add(key);
+            for (const receiver of grid.get(key) ?? []) {
+              if (receiver.index === blocker.index) continue;
+              const vx = receiver.x - blocker.x;
+              const vy = receiver.y - blocker.y;
+              const along = vx * dx + vy * dy;
+              if (along <= 0 || along > length + receiver.radius) continue;
+              const lateral = Math.abs(vx * dy - vy * dx);
+              if (lateral > blocker.radius + receiver.radius * 0.7) continue;
+              const shadowTop = blocker.height - along * Math.tan(elevationRadians);
+              const visibleTop = Math.min(receiver.height - 1.5, shadowTop);
+              if (visibleTop <= receiver.minHeight + 2) continue;
+              shadowTopByReceiver.set(
+                receiver.index,
+                Math.max(shadowTopByReceiver.get(receiver.index) ?? receiver.minHeight, visibleTop),
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const segments: Feature<Polygon, WallShadowProperties>[] = [];
+  for (const metric of metrics) {
+    const shadowTop = shadowTopByReceiver.get(metric.index);
+    const common = { sourceHeight: metric.height };
+    if (shadowTop) {
+      segments.push({
+        type: "Feature",
+        properties: { ...common, height: shadowTop, minHeight: metric.minHeight, segmentHeight: shadowTop - metric.minHeight, wallShade: "occluded" },
+        geometry: { type: "Polygon", coordinates: withAltitude(metric.feature.geometry.coordinates, metric.minHeight) },
+      });
+      segments.push({
+        type: "Feature",
+        properties: { ...common, height: metric.height, minHeight: shadowTop, segmentHeight: metric.height - shadowTop, wallShade: "sunlit" },
+        geometry: { type: "Polygon", coordinates: withAltitude(metric.feature.geometry.coordinates, shadowTop) },
+      });
+    } else {
+      segments.push({
+        type: "Feature",
+        properties: { ...common, height: metric.height, minHeight: metric.minHeight, segmentHeight: metric.height - metric.minHeight, wallShade: "sunlit" },
+        geometry: { type: "Polygon", coordinates: withAltitude(metric.feature.geometry.coordinates, metric.minHeight) },
+      });
+    }
+  }
+  return { type: "FeatureCollection", features: segments };
+}

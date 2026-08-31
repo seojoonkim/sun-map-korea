@@ -89,18 +89,20 @@ test("map-center locality changes remain available to assistive technology", () 
 });
 
 test("essential interface copy stays readable on desktop and mobile", () => {
-  assert.match(css, /\.brand-block p\s*\{[^}]*font-size:11px/);
+  assert.match(css, /\.brand-block p\s*\{[^}]*font-size:12px/);
   assert.match(css, /\.geo-search input\s*\{[^}]*font-size:16px/);
-  assert.match(css, /\.readout-values span\s*\{[^}]*font-size:12px/);
-  assert.match(css, /\.source\s*\{[^}]*font-size:11px/);
-  assert.match(css, /\.ticks\s*\{[^}]*font:10px/);
+  assert.match(css, /\.readout-values span\s*\{[^}]*font-size:13px/);
+  assert.match(css, /\.source\s*\{[^}]*font-size:12px/);
+  assert.match(css, /\.ticks\s*\{[^}]*font:11px/);
   const mobile = css.slice(css.indexOf("@media (max-width:760px)"));
-  assert.match(mobile, /\.brand-block p\s*\{[^}]*font-size:9px/);
-  assert.match(mobile, /\.brand-block strong\s*\{[^}]*font-size:13px/);
-  assert.match(mobile, /\.geo-search input\s*\{[^}]*font-size:14px/);
-  assert.match(mobile, /\.readout-heading h1\s*\{[^}]*font-size:16px/);
-  assert.match(mobile, /\.readout-values span\s*\{[^}]*font-size:10px/);
-  assert.match(mobile, /\.readout-values strong\s*\{[^}]*font-size:15px/);
+  assert.match(mobile, /\.brand-block p\s*\{[^}]*font-size:10px/);
+  assert.match(mobile, /\.brand-block strong\s*\{[^}]*font-size:15px/);
+  assert.match(mobile, /\.geo-search input\s*\{[^}]*font-size:16px/);
+  assert.match(mobile, /\.readout-heading h1\s*\{[^}]*font-size:18px/);
+  assert.match(mobile, /\.readout-values span\s*\{[^}]*font-size:12px/);
+  assert.match(mobile, /\.readout-values strong\s*\{[^}]*font-size:17px/);
+  assert.match(mobile, /\.readout-values\s*\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(mobile, /\.date-input input\s*\{[^}]*font-size:16px/);
 });
 
 test("all ordinary nationwide OpenFreeMap footprints remain eligible for 3D rendering", () => {
@@ -257,6 +259,22 @@ test("building walls use the live sun direction for directional light", () => {
   assert.match(mapCanvas, /applySolarBuildingLight\(map, solarRef\.current\)/);
 });
 
+test("buildings cast real shadow-map occlusion onto other building walls", () => {
+  assert.match(mapCanvas, /MapboxOverlay/);
+  assert.match(mapCanvas, /LightingEffect/);
+  assert.match(mapCanvas, /SunLight/);
+  assert.match(mapCanvas, /_shadow:\s*true/);
+  assert.match(mapCanvas, /shadowEnabled:\s*true/);
+  assert.match(mapCanvas, /new GeoJsonLayer/);
+  assert.match(mapCanvas, /id:\s*"solar-shadow-buildings"/);
+  assert.match(mapCanvas, /updateShadowBuildingOverlay/);
+});
+
+test("open graph description names the product as a Korean sunlight map", () => {
+  const openGraph = layout.slice(layout.indexOf("openGraph:"), layout.indexOf("twitter:"));
+  assert.match(openGraph, /description:\s*"대한민국 일조 지도"/);
+});
+
 test("desktop map gives a subtle control-drag rotation hint", () => {
   assert.match(component, /className="map-rotate-hint"/);
   assert.match(component, /Control/);
@@ -270,9 +288,9 @@ test("desktop map gives a subtle control-drag rotation hint", () => {
 
 test("desktop webview scales panels and typography without crowding the map", () => {
   assert.match(css, /\.geo-search input\s*\{[^}]*font-size:16px/);
-  assert.match(css, /\.readout-values span\s*\{[^}]*font-size:12px/);
-  assert.match(css, /\.readout-values strong\s*\{[^}]*font:[^;]*19px/);
-  assert.match(css, /\.source\s*\{[^}]*font-size:11px/);
+  assert.match(css, /\.readout-values span\s*\{[^}]*font-size:13px/);
+  assert.match(css, /\.readout-values strong\s*\{[^}]*font:[^;]*20px/);
+  assert.match(css, /\.source\s*\{[^}]*font-size:12px/);
   const tabletDesktop = css.slice(css.indexOf("@media (max-width:1180px) and (min-width:761px)"), css.indexOf("@media (max-width:760px)"));
   assert.match(tabletDesktop, /\.topbar\s*\{[^}]*width:min\(560px/);
   assert.match(tabletDesktop, /\.solar-readout\s*\{[^}]*width:400px/);

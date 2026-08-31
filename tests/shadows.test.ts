@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { MultiPolygon, Polygon } from "geojson";
 import {
+  createWallShadowSegments,
   DEFAULT_BUILDING_HEIGHT,
   normalizeBuildingFeatures,
   shadowOpacityForElevation,
@@ -58,4 +59,27 @@ test("makes shadows faint near sunrise and darkest around solar noon", () => {
   assert.ok(sunrise < morning);
   assert.ok(morning < noon);
   assert.ok(noon <= 0.78);
+});
+
+test("a tall sunward building splits the receiver wall into shadow and light", () => {
+  const receiver: Polygon = {
+    type: "Polygon",
+    coordinates: [[[127, 37.5], [127.00012, 37.5], [127.00012, 37.50012], [127, 37.50012], [127, 37.5]]],
+  };
+  const blocker: Polygon = {
+    type: "Polygon",
+    coordinates: [[[127.00045, 37.5], [127.00057, 37.5], [127.00057, 37.50012], [127.00045, 37.50012], [127.00045, 37.5]]],
+  };
+  const buildings = normalizeBuildingFeatures([
+    feature({ render_height: 40 }, receiver),
+    feature({ render_height: 80 }, blocker),
+  ]);
+
+  const segments = createWallShadowSegments(buildings, 90, 30);
+  const receiverSegments = segments.features.filter((item) => item.properties.sourceHeight === 40);
+
+  assert.deepEqual(receiverSegments.map((item) => item.properties.wallShade).sort(), ["occluded", "sunlit"]);
+  const shadow = receiverSegments.find((item) => item.properties.wallShade === "occluded")!;
+  assert.ok(shadow.properties.segmentHeight > 2);
+  assert.ok(shadow.properties.height < 40);
 });

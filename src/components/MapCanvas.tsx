@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import maplibregl, { GeoJSONSource, Map as MapLibreMap, type ExpressionSpecification } from "maplibre-gl";
-import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
+import { AmbientLight, LightingEffect, _SunLight as SunLight } from "@deck.gl/core";
+import { GeoJsonLayer } from "@deck.gl/layers";
+import { MapboxOverlay } from "@deck.gl/mapbox";
+import type { Feature, FeatureCollection, Geometry, MultiPolygon, Polygon } from "geojson";
 import type { SolarPosition } from "@/lib/solar";
 import {
   buildingBoundsContain,
@@ -16,6 +19,7 @@ import {
 } from "@/lib/building-sources";
 import {
   createBuildingShadows,
+  createWallShadowSegments,
   DEFAULT_BUILDING_HEIGHT,
   normalizeBuildingFeatures,
   shadowOpacityForElevation,
@@ -47,6 +51,7 @@ const MAX_PRECISION_CACHE_CELLS = 48;
 
 type MapCanvasProps = {
   solar: SolarPosition;
+  solarTimestamp: number;
   onCenterChange: (coordinates: [number, number]) => void;
   cameraRequest: {
     id: number;
@@ -61,6 +66,22 @@ type RenderedBuilding = {
   geometry: Polygon | MultiPolygon;
 };
 
+type DeckBuildingProperties = {
+  height?: number;
+  minHeight?: number;
+  segmentHeight?: number;
+  wallShade?: "sunlit" | "occluded";
+  sourceHeight?: number;
+} & Record<string, unknown>;
+
+function deckBuildingColor(feature: Feature<Geometry, DeckBuildingProperties>): [number, number, number, number] {
+  if (feature.properties?.wallShade === "occluded") return [27, 167, 132, 255];
+  const height = Number(feature.properties?.sourceHeight ?? feature.properties?.height ?? DEFAULT_BUILDING_HEIGHT);
+  if (height >= 100) return [248, 119, 151, 255];
+  if (height >= 30) return [253, 175, 195, 255];
+  return [255, 214, 224, 255];
+}
+
 function applySolarBuildingLight(map: MapLibreMap, solar: SolarPosition) {
   const azimuth = solar.azimuth;
   const polarAngle = solar.isDaylight ? Math.max(18, 90 - solar.elevation) : 90;
@@ -74,10 +95,11 @@ function applySolarBuildingLight(map: MapLibreMap, solar: SolarPosition) {
   });
 }
 
-export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapCanvasProps) {
+export default function MapCanvas({ solar, solarTimestamp, onCenterChange, cameraRequest }: MapCanvasProps) {
   const [buildingLoading, setBuildingLoading] = useState(false);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const shadowOverlayRef = useRef<MapboxOverlay | null>(null);
   const buildingsRef = useRef<FeatureCollection<Polygon>>(EMPTY_BUILDINGS);
   const shadowTimerRef = useRef<number | null>(null);
   const precisionAbortRef = useRef<AbortController | null>(null);
@@ -86,9 +108,70 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
   const precisionCellCacheRef = useRef(new Map<string, FeatureCollection<Polygon | MultiPolygon>>());
   const seoulPrecisionActiveRef = useRef(false);
   const solarRef = useRef(solar);
+  const solarTimestampRef = useRef(solarTimestamp);
   const cameraRequestRef = useRef(cameraRequest);
   solarRef.current = solar;
+  solarTimestampRef.current = solarTimestamp;
   cameraRequestRef.current = cameraRequest;
+
+  const updateShadowBuildingOverlay = useCallback(() => {
+    const overlay = shadowOverlayRef.current;
+    if (!overlay) return;
+    const currentSolar = solarRef.current;
+    const sunLight = new SunLight({
+      id: "solar-shadow-light",
+      timestamp: solarTimestampRef.current,
+      color: [255, 244, 214],
+      intensity: currentSolar.isDaylight ? 2.1 : 0.15,
+      _shadow: true,
+    });
+    const ambientLight = new AmbientLight({
+      id: "solar-ambient-light",
+      color: [185, 205, 220],
+      intensity: currentSolar.isDaylight ? 0.42 : 0.18,
+    });
+    const lightingEffect = new LightingEffect({ ambientLight, sunLight });
+    lightingEffect.shadowColor = [0.04, 0.10, 0.14, 0.62];
+    const wallShadowStart = performance.now();
+    const wallSegments = createWallShadowSegments(
+      buildingsRef.current,
+      currentSolar.azimuth,
+      currentSolar.elevation,
+    );
+    overlay.setProps({
+      effects: [lightingEffect],
+      layers: [
+        new GeoJsonLayer<DeckBuildingProperties>({
+          id: "solar-shadow-buildings",
+          // MapboxOverlay consumes this ordering extension at runtime.
+          // @ts-expect-error beforeId is not declared on CompositeLayerProps.
+          beforeId: FALLBACK_LAYER,
+          data: wallSegments,
+          filled: true,
+          extruded: true,
+          stroked: false,
+          wireframe: false,
+          pickable: false,
+          opacity: currentSolar.isDaylight ? 0.96 : 0.78,
+          getElevation: (feature) => Number(feature.properties?.segmentHeight ?? DEFAULT_BUILDING_HEIGHT),
+          getFillColor: deckBuildingColor,
+          material: {
+            ambient: 0.28,
+            diffuse: 0.82,
+            shininess: 10,
+            specularColor: [70, 55, 60],
+          },
+          _subLayerProps: {
+            "polygons-fill": { shadowEnabled: true },
+          },
+        }),
+      ],
+    });
+    if (mapContainer.current) {
+      mapContainer.current.dataset.wallShadowMode = "shadow-map";
+      mapContainer.current.dataset.wallShadowRenderMs = (performance.now() - wallShadowStart).toFixed(1);
+    }
+  }, []);
 
   const applyCameraRequest = useCallback((map: MapLibreMap, request: MapCanvasProps["cameraRequest"]) => {
     if (!request) return;
@@ -121,8 +204,9 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       }
       const source = map.getSource("solar-shadow") as GeoJSONSource | undefined;
       source?.setData(createBuildingShadows(buildingsRef.current, azimuth, elevation));
+      updateShadowBuildingOverlay();
     }, delay);
-  }, []);
+  }, [updateShadowBuildingOverlay]);
 
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
@@ -143,6 +227,9 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       renderWorldCopies: false,
     });
     mapRef.current = map;
+    const shadowOverlay = new MapboxOverlay({ interleaved: true, layers: [] });
+    shadowOverlayRef.current = shadowOverlay;
+    map.addControl(shadowOverlay as unknown as maplibregl.IControl);
     if (!compactMap) map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "bottom-right");
     map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
     if (compactMap) {
@@ -290,7 +377,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       ]);
       map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-height", fallbackHeight);
       map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-base", ["coalesce", ["get", "render_min_height"], 0]);
-      map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-opacity", compactMap ? 0.88 : 0.92);
+      map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-opacity", 0.01);
       map.setPaintProperty(FALLBACK_LAYER, "fill-extrusion-vertical-gradient", !compactMap);
       map.addSource("seoul-buildings", { type: "geojson", data: EMPTY_SOURCE });
       map.addSource("solar-shadow", { type: "geojson", data: EMPTY_BUILDINGS });
@@ -328,7 +415,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
           "fill-extrusion-color": ["interpolate", ["linear"], ["get", "height"], 4, BUILDING_COLORS[0], 30, BUILDING_COLORS[1], 100, BUILDING_COLORS[2]],
           "fill-extrusion-height": ["get", "height"],
           "fill-extrusion-base": ["coalesce", ["get", "minHeight"], 0],
-          "fill-extrusion-opacity": compactMap ? 0.9 : 0.94,
+          "fill-extrusion-opacity": 0.01,
           "fill-extrusion-vertical-gradient": !compactMap,
         },
       });
@@ -355,8 +442,9 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       if (shadowTimerRef.current !== null) window.clearTimeout(shadowTimerRef.current);
       map.remove();
       mapRef.current = null;
+      shadowOverlayRef.current = null;
     };
-  }, [applyCameraRequest, onCenterChange, scheduleShadowUpdate]);
+  }, [applyCameraRequest, onCenterChange, scheduleShadowUpdate, updateShadowBuildingOverlay]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -370,8 +458,9 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
     }
     if (mapContainer.current) mapContainer.current.dataset.theme = solar.isDaylight ? "day" : "night";
     if (map?.isStyleLoaded()) applySolarBuildingLight(map, solar);
+    updateShadowBuildingOverlay();
     scheduleShadowUpdate(35);
-  }, [solar, scheduleShadowUpdate]);
+  }, [solar, solarTimestamp, scheduleShadowUpdate, updateShadowBuildingOverlay]);
 
   return (
     <>

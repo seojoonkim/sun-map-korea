@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "대한민국 어디서나, 시간에 따라 달라지는 햇빛과 건물 그림자를 한눈에.",
   openGraph: {
     title: "SUN MAP KOREA",
-    description: "대한민국 어디서나, 시간에 따라 달라지는 햇빛과 건물 그림자를 한눈에.",
+    description: "대한민국 일조 지도",
     url: "/",
     siteName: "SUN MAP KOREA",
     locale: "ko_KR",
