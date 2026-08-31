@@ -1,6 +1,6 @@
 export type AnalysisBounds = [number, number, number, number];
 
-const ANALYSIS_RADIUS_LATITUDE_DEGREES = 0.008;
+const ANALYSIS_RADIUS_LATITUDE_DEGREES = 0.015;
 
 export function createAnalysisBounds([longitude, latitude]: [number, number]): AnalysisBounds {
   const longitudeRadius = ANALYSIS_RADIUS_LATITUDE_DEGREES / Math.max(Math.cos(latitude * Math.PI / 180), 0.6);
