@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Feature, MultiPolygon, Polygon } from "geojson";
-import { splitSeoulBuildingBounds, type BuildingBounds } from "@/lib/building-sources";
+import { createSmapProvider } from "@/lib/buildings/smap-provider";
+import type { BuildingBounds } from "@/lib/buildings/types";
 
 export const runtime = "nodejs";
 export const revalidate = 86_400;
 
-const SMAP_PROXY = "https://smap.seoul.go.kr/imageProxy.do";
-const LAYER = "seoul:footprint_w_minmax";
-const MAX_FEATURES = 2_000;
 const MAX_SPAN = 0.25;
 type Bounds = BuildingBounds;
-type SmapFeature = Feature<Polygon | MultiPolygon, Record<string, unknown>>;
-type WfsResponse = {
-  type: "FeatureCollection";
-  features?: SmapFeature[];
-};
 
 function parseBounds(value: string | null): Bounds | null {
   if (!value) return null;
@@ -25,35 +17,6 @@ function parseBounds(value: string | null): Bounds | null {
   return values as Bounds;
 }
 
-function wfsUrl(bounds: Bounds) {
-  const param = new URL("https://smap.seoul.go.kr/geoserver/seoul/wfs");
-  param.search = new URLSearchParams({
-    service: "WFS",
-    version: "1.1.0",
-    request: "GetFeature",
-    typeName: LAYER,
-    outputFormat: "application/json",
-    srsName: "EPSG:4326",
-    maxFeatures: String(MAX_FEATURES),
-    bbox: `${bounds.join(",")},EPSG:4326`,
-  }).toString();
-  const proxy = new URL(SMAP_PROXY);
-  proxy.searchParams.set("svc", "2D");
-  proxy.searchParams.set("param", `${param.pathname}${param.search}`);
-  return proxy;
-}
-
-async function fetchCell(bounds: Bounds, signal: AbortSignal) {
-  const response = await fetch(wfsUrl(bounds), {
-    signal,
-    headers: { Accept: "application/json", "User-Agent": "SunMapKorea/1.0" },
-    next: { revalidate },
-  });
-  if (!response.ok) throw new Error(`S-MAP WFS ${response.status}`);
-  const data = await response.json() as WfsResponse;
-  return Array.isArray(data.features) ? data.features : [];
-}
-
 export async function GET(request: NextRequest) {
   const bounds = parseBounds(request.nextUrl.searchParams.get("bbox"));
   if (!bounds) return NextResponse.json({ error: "Invalid or oversized bbox" }, { status: 400 });
@@ -61,11 +24,14 @@ export async function GET(request: NextRequest) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12_000);
   try {
-    const cells = splitSeoulBuildingBounds(bounds);
-    const features = (await Promise.all(cells.map((cell) => fetchCell(cell, controller.signal)))).flat();
-    const unique = Array.from(new Map(features.map((feature) => [String(feature.id ?? feature.properties?.id), feature])).values());
+    const provider = createSmapProvider({ fetch });
+    const { features, meta } = await provider.getBuildings({
+      bounds,
+      purpose: "point-report",
+      minimumSunElevation: 0,
+    }, controller.signal);
     return NextResponse.json(
-      { type: "FeatureCollection", features: unique, source: "Seoul S-MAP 2025" },
+      { type: "FeatureCollection", features, source: "Seoul S-MAP 2025", meta },
       { headers: { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800" } },
     );
   } catch (error) {

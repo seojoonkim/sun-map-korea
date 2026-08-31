@@ -1,4 +1,5 @@
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
+import { normalizeSmapBuilding } from "@/lib/buildings/quality";
 
 export const NATIONWIDE_BUILDINGS_URL = "https://tiles.openfreemap.org/planet";
 
@@ -213,24 +214,19 @@ export function buildSeoulBuildingRequest(bbox: BuildingBounds) {
 
 export function normalizeSeoulBuildings(features: SourceFeature[]): FeatureCollection<BuildingGeometry> {
   const normalized = features.flatMap((feature) => {
-    const rawMinimum = feature.properties?.min;
-    const rawMaximum = feature.properties?.max;
-    if (rawMinimum === null || rawMinimum === undefined || rawMaximum === null || rawMaximum === undefined) return [];
-    const minimum = Number(rawMinimum);
-    const maximum = Number(rawMaximum);
-    if (!Number.isFinite(minimum) || !Number.isFinite(maximum) || maximum <= minimum) return [];
-    const height = Math.round((maximum - minimum) * 100) / 100;
+    const building = normalizeSmapBuilding(feature);
+    if (!building) return [];
     return [{
       type: "Feature" as const,
       id: feature.id ?? feature.properties?.id as string | number | undefined,
-      geometry: feature.geometry,
+      geometry: building.geometry,
       properties: {
-        height,
-        minHeight: 0,
+        height: Math.round(building.height * 100) / 100,
+        minHeight: building.minHeight,
         heightEstimated: false,
         heightSource: "smap-2025-elevation-span",
         heightConfidence: "A",
-        footprintSource: "smap-2025",
+        footprintSource: building.footprintSource,
       },
     }];
   });

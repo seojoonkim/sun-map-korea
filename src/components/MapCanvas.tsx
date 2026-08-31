@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import maplibregl, { GeoJSONSource, Map as MapLibreMap, type ExpressionSpecification } from "maplibre-gl";
-import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
+import type { FeatureCollection, MultiPolygon, Point, Polygon } from "geojson";
 import type { SolarPosition } from "@/lib/solar";
+import type { AnalysisPoint } from "@/lib/analysis/comparison";
 import {
   buildingBoundsContain,
   buildSeoulBuildingRequest,
@@ -25,6 +26,7 @@ const SEOUL_CENTER: [number, number] = [127.02761, 37.49794];
 const KOREA_BOUNDS: [[number, number], [number, number]] = [[124.0, 32.2], [132.2, 39.2]];
 const EMPTY_BUILDINGS: FeatureCollection<Polygon> = { type: "FeatureCollection", features: [] };
 const EMPTY_SOURCE: FeatureCollection<Polygon | MultiPolygon> = { type: "FeatureCollection", features: [] };
+const EMPTY_POINTS: FeatureCollection<Point> = { type: "FeatureCollection", features: [] };
 const NIGHT_TINT: FeatureCollection<Polygon> = {
   type: "FeatureCollection",
   features: [{
@@ -48,6 +50,11 @@ const MAX_PRECISION_CACHE_CELLS = 48;
 type MapCanvasProps = {
   solar: SolarPosition;
   onCenterChange: (coordinates: [number, number]) => void;
+  onSelectPoint: (coordinates: [number, number]) => void;
+  selectedPoint: AnalysisPoint | null;
+  comparisonPoints: AnalysisPoint[];
+  shadowOverlay: FeatureCollection<Polygon> | null;
+  showShadowOverlay: boolean;
   cameraRequest: {
     id: number;
     mode: "place" | "country";
@@ -61,7 +68,16 @@ type RenderedBuilding = {
   geometry: Polygon | MultiPolygon;
 };
 
-export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapCanvasProps) {
+export default function MapCanvas({
+  solar,
+  onCenterChange,
+  onSelectPoint,
+  selectedPoint,
+  comparisonPoints,
+  shadowOverlay,
+  showShadowOverlay,
+  cameraRequest,
+}: MapCanvasProps) {
   const [buildingLoading, setBuildingLoading] = useState(false);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -74,8 +90,18 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
   const seoulPrecisionActiveRef = useRef(false);
   const solarRef = useRef(solar);
   const cameraRequestRef = useRef(cameraRequest);
+  const onSelectPointRef = useRef(onSelectPoint);
+  const selectedPointRef = useRef(selectedPoint);
+  const comparisonPointsRef = useRef(comparisonPoints);
+  const shadowOverlayRef = useRef(shadowOverlay);
+  const showShadowOverlayRef = useRef(showShadowOverlay);
   solarRef.current = solar;
   cameraRequestRef.current = cameraRequest;
+  onSelectPointRef.current = onSelectPoint;
+  selectedPointRef.current = selectedPoint;
+  comparisonPointsRef.current = comparisonPoints;
+  shadowOverlayRef.current = shadowOverlay;
+  showShadowOverlayRef.current = showShadowOverlay;
 
   const applyCameraRequest = useCallback((map: MapLibreMap, request: MapCanvasProps["cameraRequest"]) => {
     if (!request) return;
@@ -117,6 +143,11 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: BASE_MAP_STYLE,
+      transformRequest: (url, resourceType) => ({
+        url: resourceType === "Glyphs" && url.startsWith("https://tiles.openfreemap.org/fonts/")
+          ? url.replace("https://tiles.openfreemap.org/fonts/", "https://fonts.openmaptiles.org/")
+          : url,
+      }),
       center: SEOUL_CENTER,
       zoom: compactMap ? 14.7 : 15.35,
       pitch: compactMap ? 38 : 53,
@@ -281,6 +312,8 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       map.addSource("seoul-buildings", { type: "geojson", data: EMPTY_SOURCE });
       map.addSource("solar-shadow", { type: "geojson", data: EMPTY_BUILDINGS });
       map.addSource("night-map-tint", { type: "geojson", data: NIGHT_TINT });
+      map.addSource("analysis-points", { type: "geojson", data: EMPTY_POINTS });
+      map.addSource("accumulated-shadow", { type: "geojson", data: EMPTY_BUILDINGS });
       map.addLayer({
         id: "night-map-tint",
         type: "fill",
@@ -303,6 +336,25 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
           ],
         },
       });
+      map.addLayer({
+        id: "accumulated-shadow-fill",
+        type: "fill",
+        source: "accumulated-shadow",
+        layout: { visibility: "none" },
+        paint: {
+          "fill-color": ["interpolate", ["linear"], ["coalesce", ["get", "shadowRatio"], 0], 0, "#fff7d1", 0.5, "#62c7ae", 1, "#087f6b"],
+          "fill-opacity": 0.48,
+          "fill-outline-color": "rgba(8,127,107,.28)",
+        },
+      });
+      map.addLayer({
+        id: "accumulated-shadow-label",
+        type: "symbol",
+        source: "accumulated-shadow",
+        minzoom: 15,
+        layout: { visibility: "none", "text-field": ["get", "label"], "text-size": 10 },
+        paint: { "text-color": "#16453d", "text-halo-color": "#fff", "text-halo-width": 1 },
+      });
       map.moveLayer(FALLBACK_LAYER);
       map.addLayer({
         id: SEOUL_LAYER,
@@ -318,6 +370,41 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
           "fill-extrusion-vertical-gradient": !compactMap,
         },
       });
+      map.addLayer({
+        id: "analysis-point-circles",
+        type: "circle",
+        source: "analysis-points",
+        paint: {
+          "circle-radius": ["case", ["==", ["get", "selected"], true], 10, 8],
+          "circle-color": ["match", ["get", "colorIndex"], 1, "#f05d5e", 2, "#377dff", 3, "#8e5bd9", 4, "#e18b18", "#f5b301"],
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 3,
+        },
+      });
+      map.addLayer({
+        id: "analysis-point-labels",
+        type: "symbol",
+        source: "analysis-points",
+        layout: { "text-field": ["get", "indexLabel"], "text-size": 11, "text-allow-overlap": true },
+        paint: { "text-color": "#252830", "text-halo-color": "#ffffff", "text-halo-width": 1 },
+      });
+      const initialPoints = comparisonPointsRef.current.map((point, index) => ({
+        type: "Feature" as const,
+        properties: { selected: selectedPointRef.current?.id === point.id, colorIndex: index + 1, indexLabel: String(index + 1) },
+        geometry: { type: "Point" as const, coordinates: point.coordinates },
+      }));
+      if (selectedPointRef.current && !comparisonPointsRef.current.some((point) => point.id === selectedPointRef.current?.id)) {
+        initialPoints.push({
+          type: "Feature",
+          properties: { selected: true, colorIndex: 0, indexLabel: "선택" },
+          geometry: { type: "Point", coordinates: selectedPointRef.current.coordinates },
+        });
+      }
+      (map.getSource("analysis-points") as GeoJSONSource).setData({ type: "FeatureCollection", features: initialPoints });
+      (map.getSource("accumulated-shadow") as GeoJSONSource).setData(shadowOverlayRef.current ?? EMPTY_BUILDINGS);
+      const overlayVisibility = showShadowOverlayRef.current && shadowOverlayRef.current ? "visible" : "none";
+      map.setLayoutProperty("accumulated-shadow-fill", "visibility", overlayVisibility);
+      map.setLayoutProperty("accumulated-shadow-label", "visibility", overlayVisibility);
       const initialCameraRequest = cameraRequestRef.current;
       applyCameraRequest(map, initialCameraRequest);
       if (!initialCameraRequest) void updatePrecisionBuildings();
@@ -335,6 +422,7 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
       map.once("idle", refreshMapData);
       void updatePrecisionBuildings();
     });
+    map.on("click", (event) => onSelectPointRef.current([event.lngLat.lng, event.lngLat.lat]));
 
     return () => {
       precisionAbortRef.current?.abort();
@@ -348,6 +436,33 @@ export default function MapCanvas({ solar, onCenterChange, cameraRequest }: MapC
     const map = mapRef.current;
     if (map) applyCameraRequest(map, cameraRequest);
   }, [applyCameraRequest, cameraRequest]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.isStyleLoaded()) return;
+    const points = comparisonPoints.map((point, index) => ({
+      type: "Feature" as const,
+      properties: { selected: selectedPoint?.id === point.id, colorIndex: index + 1, indexLabel: String(index + 1) },
+      geometry: { type: "Point" as const, coordinates: point.coordinates },
+    }));
+    if (selectedPoint && !comparisonPoints.some((point) => point.id === selectedPoint.id)) {
+      points.push({
+        type: "Feature",
+        properties: { selected: true, colorIndex: 0, indexLabel: "선택" },
+        geometry: { type: "Point", coordinates: selectedPoint.coordinates },
+      });
+    }
+    (map.getSource("analysis-points") as GeoJSONSource | undefined)?.setData({ type: "FeatureCollection", features: points });
+  }, [comparisonPoints, selectedPoint]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.isStyleLoaded()) return;
+    (map.getSource("accumulated-shadow") as GeoJSONSource | undefined)?.setData(shadowOverlay ?? EMPTY_BUILDINGS);
+    const visibility = showShadowOverlay && shadowOverlay ? "visible" : "none";
+    if (map.getLayer("accumulated-shadow-fill")) map.setLayoutProperty("accumulated-shadow-fill", "visibility", visibility);
+    if (map.getLayer("accumulated-shadow-label")) map.setLayoutProperty("accumulated-shadow-label", "visibility", visibility);
+  }, [shadowOverlay, showShadowOverlay]);
 
   useEffect(() => {
     const map = mapRef.current;
