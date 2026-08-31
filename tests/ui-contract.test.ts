@@ -103,6 +103,7 @@ test("essential interface copy stays readable on desktop and mobile", () => {
   assert.match(mobile, /\.readout-values strong\s*\{[^}]*font-size:17px/);
   assert.match(mobile, /\.readout-values\s*\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
   assert.match(mobile, /\.date-input input\s*\{[^}]*font-size:16px/);
+  assert.match(mobile, /\.building-loading\s*\{[^}]*top:230px/);
 });
 
 test("all ordinary nationwide OpenFreeMap footprints remain eligible for 3D rendering", () => {
