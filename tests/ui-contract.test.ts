@@ -22,6 +22,10 @@ test("date is a first-class labeled control", () => {
   assert.match(component, /aria-label="날짜 직접 선택"/);
 });
 
+test("the initial simulation time reveals long building shadows", () => {
+  assert.match(component, /useState\(8 \* 60 \+ 30\)/);
+});
+
 test("mobile rendering disables expensive decorative compositing", () => {
   const mobile = css.slice(css.indexOf("@media (max-width:760px)"));
   assert.match(mobile, /\.glass-panel\s*\{[^}]*backdrop-filter:none/);

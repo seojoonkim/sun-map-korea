@@ -58,7 +58,7 @@ function SunLogo() {
 
 export default function SunMapExperience() {
   const [date, setDate] = useState("2000-01-01");
-  const [minutes, setMinutes] = useState(12 * 60 + 30);
+  const [minutes, setMinutes] = useState(8 * 60 + 30);
   const [playing, setPlaying] = useState(false);
   const [coordinates, setCoordinates] = useState<[number, number]>(SEOUL_CENTER);
   const [currentLocation, setCurrentLocation] = useState("서울 · 강남");
