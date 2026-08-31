@@ -5,7 +5,6 @@ import { createSmapProvider } from "@/lib/buildings/smap-provider";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
 
 const provider = createHybridBuildingProvider({
   smap: createSmapProvider({ fetch }),

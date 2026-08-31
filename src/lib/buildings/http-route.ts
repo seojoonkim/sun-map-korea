@@ -1,7 +1,7 @@
 import type { BuildingBounds, BuildingProvider, BuildingQuery } from "./types";
 
 const MAX_SPAN = 0.16;
-const TIMEOUT_MS = 45_000;
+const TIMEOUT_MS = 15_000;
 const KOREA_BOUNDS = [124, 32.2, 132.2, 39.2] as const;
 const PURPOSES = new Set<BuildingQuery["purpose"]>(["point-report", "comparison", "ground-overlay"]);
 
