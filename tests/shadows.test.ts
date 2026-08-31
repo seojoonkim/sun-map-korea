@@ -83,3 +83,13 @@ test("a tall sunward building splits the receiver wall into shadow and light", (
   assert.ok(shadow.properties.segmentHeight > 2);
   assert.ok(shadow.properties.height < 40);
 });
+
+test("wall shadow rendering preserves valid buildings shorter than the fallback", () => {
+  const buildings = normalizeBuildingFeatures([feature({ render_height: 4 })]);
+
+  const segments = createWallShadowSegments(buildings, 180, 45);
+
+  assert.equal(segments.features.length, 1);
+  assert.equal(segments.features[0].properties.sourceHeight, 4);
+  assert.equal(segments.features[0].properties.segmentHeight, 4);
+});

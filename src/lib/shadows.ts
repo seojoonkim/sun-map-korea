@@ -185,7 +185,8 @@ export function createWallShadowSegments(
       (px - lng) * lngScale,
       (py - lat) * latScale,
     )));
-    const height = Math.max(DEFAULT_BUILDING_HEIGHT, Number(feature.properties?.height ?? DEFAULT_BUILDING_HEIGHT));
+    const rawHeight = Number(feature.properties?.height ?? DEFAULT_BUILDING_HEIGHT);
+    const height = Number.isFinite(rawHeight) && rawHeight > 0 ? rawHeight : DEFAULT_BUILDING_HEIGHT;
     const minHeight = Math.max(0, Number(feature.properties?.minHeight ?? 0));
     return { feature, index, x, y, radius, height, minHeight };
   });
