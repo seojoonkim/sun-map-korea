@@ -104,6 +104,7 @@ export default function MapCanvas({ solar, solarTimestamp, onCenterChange, camer
   const shadowTimerRef = useRef<number | null>(null);
   const precisionAbortRef = useRef<AbortController | null>(null);
   const precisionRequestRef = useRef(0);
+  const precisionCommitCountRef = useRef(0);
   const precisionCoverageRef = useRef<BuildingBounds | null>(null);
   const precisionCellCacheRef = useRef(new Map<string, FeatureCollection<Polygon | MultiPolygon>>());
   const seoulPrecisionActiveRef = useRef(false);
@@ -323,6 +324,10 @@ export default function MapCanvas({ solar, solarTimestamp, onCenterChange, camer
         map.setLayoutProperty(FALLBACK_LAYER, "visibility", "visible");
         map.setLayoutProperty(SEOUL_LAYER, "visibility", "visible");
         seoulPrecisionActiveRef.current = true;
+        precisionCommitCountRef.current += 1;
+        if (mapContainer.current) {
+          mapContainer.current.dataset.precisionCommitCount = String(precisionCommitCountRef.current);
+        }
         map.once("idle", refreshMapData);
       };
       try {
@@ -330,6 +335,7 @@ export default function MapCanvas({ solar, solarTimestamp, onCenterChange, camer
           cells,
           center: [center.lng, center.lat],
           cache: precisionCellCacheRef.current,
+          progressive: false,
           load: fetchPrecisionBuildings,
           paint: paintPrecisionBuildings,
         });

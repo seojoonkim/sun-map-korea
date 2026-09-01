@@ -313,6 +313,8 @@ test("precision buildings load by reusable center-first cells instead of one ove
   assert.match(mapCanvas, /loadSeoulBuildingCells/);
   assert.match(mapCanvas, /splitSeoulBuildingBounds\(requestBounds\)/);
   assert.match(mapCanvas, /precisionCellCacheRef/);
+  assert.match(mapCanvas, /progressive:\s*false/);
+  assert.match(mapCanvas, /dataset\.precisionCommitCount/);
   assert.doesNotMatch(mapCanvas, /loadViewport:\s*\(\)\s*=>\s*fetchPrecisionBuildings\(requestBounds\)/);
 });
 

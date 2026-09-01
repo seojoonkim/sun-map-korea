@@ -110,6 +110,7 @@ export type SeoulBuildingCellLoader<T> = {
   load: (cell: BuildingBounds) => Promise<T>;
   paint: (values: T[]) => void;
   concurrency?: number;
+  progressive?: boolean;
 };
 
 export async function loadSeoulBuildingCells<T>({
@@ -119,6 +120,7 @@ export async function loadSeoulBuildingCells<T>({
   load,
   paint,
   concurrency = 6,
+  progressive = true,
 }: SeoulBuildingCellLoader<T>) {
   const keyFor = (cell: BuildingBounds) => cell.join(",");
   const ordered = [...cells].sort((a, b) => {
@@ -139,7 +141,7 @@ export async function loadSeoulBuildingCells<T>({
     values.set(key, cached);
   }
   const reused = values.size;
-  if (reused > 0) paint([...values.values()]);
+  if (reused > 0 && progressive) paint([...values.values()]);
 
   const pending = ordered.filter((cell) => !values.has(keyFor(cell)));
   let loaded = 0;
@@ -149,7 +151,7 @@ export async function loadSeoulBuildingCells<T>({
     cache.set(key, value);
     values.set(key, value);
     loaded += 1;
-    if (values.size === 1 || loaded % 4 === 0 || loaded === pending.length) {
+    if (progressive && (values.size === 1 || loaded % 4 === 0 || loaded === pending.length)) {
       paint([...values.values()]);
       lastPaintedCount = values.size;
     }
@@ -169,7 +171,9 @@ export async function loadSeoulBuildingCells<T>({
   const remaining = pending.length - cursor;
   const workerCount = Math.min(Math.max(1, concurrency), remaining);
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
-  if (values.size > 0 && lastPaintedCount !== values.size) paint([...values.values()]);
+  if (values.size > 0 && (!progressive || lastPaintedCount !== values.size)) {
+    paint([...values.values()]);
+  }
   return { loaded, reused };
 }
 

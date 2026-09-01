@@ -173,6 +173,23 @@ test("loads canonical building cells center-first and paints progressively", asy
   assert.equal(result.loaded, cells.length);
 });
 
+test("stable loading paints canonical cells only once after all cells settle", async () => {
+  const cells = splitSeoulBuildingBounds([127.05, 37.50, 127.09, 37.54]);
+  const painted: number[] = [];
+
+  await loadSeoulBuildingCells({
+    cells,
+    center: [127.07, 37.52],
+    cache: new Map<string, string>(),
+    concurrency: 2,
+    progressive: false,
+    load: async (cell) => cell.join(","),
+    paint: (values) => painted.push(values.length),
+  });
+
+  assert.deepEqual(painted, [cells.length]);
+});
+
 test("reuses cached building cells and only fetches missing coverage", async () => {
   const cells = splitSeoulBuildingBounds([127.05, 37.50, 127.09, 37.54]);
   const firstKey = cells[0].join(",");
