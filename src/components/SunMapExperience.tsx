@@ -133,7 +133,7 @@ export default function SunMapExperience() {
 
   return (
     <main className={`app ${solar.isDaylight ? "is-day" : "is-night"}`}>
-      <MapCanvas solar={solar} solarTimestamp={currentDate.getTime()} onCenterChange={setCoordinates} cameraRequest={cameraRequest} />
+      <MapCanvas solar={solar} solarTimestamp={currentDate.getTime()} playing={playing} onCenterChange={setCoordinates} cameraRequest={cameraRequest} />
       <div className="map-center-reticle" aria-hidden="true"><span /><span /></div>
       <p className="map-rotate-hint"><kbd>Control</kbd> + 마우스 왼쪽 버튼으로 화면 회전</p>
       <p className="sr-only" role="status" aria-live="polite">지도 중심 위치: {currentLocation}</p>

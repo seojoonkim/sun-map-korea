@@ -283,6 +283,17 @@ test("buildings cast real shadow-map occlusion onto other building walls", () =>
   assert.match(mapCanvas, /updateShadowBuildingOverlay/);
 });
 
+test("playback keeps building geometry stable and settles exact shadows on pause", () => {
+  assert.match(component, /<MapCanvas[^>]*playing=\{playing\}/);
+  assert.match(mapCanvas, /playing:\s*boolean/);
+  assert.match(mapCanvas, /playingRef\.current/);
+  assert.match(mapCanvas, /wallSegmentsRef/);
+  assert.match(mapCanvas, /buildingSignatureRef/);
+  assert.match(mapCanvas, /dataset\.shadowGeometryRebuildCount/);
+  assert.match(mapCanvas, /updateShadowBuildingOverlay\(!playingRef\.current\)/);
+  assert.match(mapCanvas, /if \(!playingRef\.current\)\s*\{[\s\S]*?source\?\.setData/);
+});
+
 test("open graph description names the product as a Korean sunlight map", () => {
   const openGraph = layout.slice(layout.indexOf("openGraph:"), layout.indexOf("twitter:"));
   assert.match(openGraph, /description:\s*"대한민국 일조 지도"/);

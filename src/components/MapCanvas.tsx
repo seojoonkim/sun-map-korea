@@ -52,6 +52,7 @@ const MAX_PRECISION_CACHE_CELLS = 48;
 type MapCanvasProps = {
   solar: SolarPosition;
   solarTimestamp: number;
+  playing: boolean;
   onCenterChange: (coordinates: [number, number]) => void;
   cameraRequest: {
     id: number;
@@ -95,12 +96,17 @@ function applySolarBuildingLight(map: MapLibreMap, solar: SolarPosition) {
   });
 }
 
-export default function MapCanvas({ solar, solarTimestamp, onCenterChange, cameraRequest }: MapCanvasProps) {
+export default function MapCanvas({ solar, solarTimestamp, playing, onCenterChange, cameraRequest }: MapCanvasProps) {
   const [buildingLoading, setBuildingLoading] = useState(false);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const shadowOverlayRef = useRef<MapboxOverlay | null>(null);
   const buildingsRef = useRef<FeatureCollection<Polygon>>(EMPTY_BUILDINGS);
+  const wallSegmentsRef = useRef<ReturnType<typeof createWallShadowSegments>>({ type: "FeatureCollection", features: [] });
+  const buildingRevisionRef = useRef(0);
+  const buildingSignatureRef = useRef("");
+  const wallSegmentsRevisionRef = useRef(-1);
+  const shadowGeometryRebuildCountRef = useRef(0);
   const shadowTimerRef = useRef<number | null>(null);
   const precisionAbortRef = useRef<AbortController | null>(null);
   const precisionRequestRef = useRef(0);
@@ -110,12 +116,14 @@ export default function MapCanvas({ solar, solarTimestamp, onCenterChange, camer
   const seoulPrecisionActiveRef = useRef(false);
   const solarRef = useRef(solar);
   const solarTimestampRef = useRef(solarTimestamp);
+  const playingRef = useRef(playing);
   const cameraRequestRef = useRef(cameraRequest);
   solarRef.current = solar;
   solarTimestampRef.current = solarTimestamp;
+  playingRef.current = playing;
   cameraRequestRef.current = cameraRequest;
 
-  const updateShadowBuildingOverlay = useCallback(() => {
+  const updateShadowBuildingOverlay = useCallback((rebuildGeometry = true) => {
     const overlay = shadowOverlayRef.current;
     if (!overlay) return;
     const currentSolar = solarRef.current;
@@ -134,11 +142,17 @@ export default function MapCanvas({ solar, solarTimestamp, onCenterChange, camer
     const lightingEffect = new LightingEffect({ ambientLight, sunLight });
     lightingEffect.shadowColor = [0.04, 0.10, 0.14, 0.4];
     const wallShadowStart = performance.now();
-    const wallSegments = createWallShadowSegments(
-      buildingsRef.current,
-      currentSolar.azimuth,
-      currentSolar.elevation,
-    );
+    const buildingGeometryChanged = wallSegmentsRevisionRef.current !== buildingRevisionRef.current;
+    if (rebuildGeometry || buildingGeometryChanged || wallSegmentsRef.current.features.length === 0) {
+      wallSegmentsRef.current = createWallShadowSegments(
+        buildingsRef.current,
+        currentSolar.azimuth,
+        currentSolar.elevation,
+      );
+      wallSegmentsRevisionRef.current = buildingRevisionRef.current;
+      shadowGeometryRebuildCountRef.current += 1;
+    }
+    const wallSegments = wallSegmentsRef.current;
     overlay.setProps({
       effects: [lightingEffect],
       layers: [
@@ -171,6 +185,7 @@ export default function MapCanvas({ solar, solarTimestamp, onCenterChange, camer
     if (mapContainer.current) {
       mapContainer.current.dataset.wallShadowMode = "shadow-map";
       mapContainer.current.dataset.wallShadowRenderMs = (performance.now() - wallShadowStart).toFixed(1);
+      mapContainer.current.dataset.shadowGeometryRebuildCount = String(shadowGeometryRebuildCountRef.current);
     }
   }, []);
 
@@ -203,9 +218,11 @@ export default function MapCanvas({ solar, solarTimestamp, onCenterChange, camer
       if (mapContainer.current) {
         mapContainer.current.dataset.shadowStrength = String(shadowOpacityForElevation(elevation));
       }
-      const source = map.getSource("solar-shadow") as GeoJSONSource | undefined;
-      source?.setData(createBuildingShadows(buildingsRef.current, azimuth, elevation));
-      updateShadowBuildingOverlay();
+      if (!playingRef.current) {
+        const source = map.getSource("solar-shadow") as GeoJSONSource | undefined;
+        source?.setData(createBuildingShadows(buildingsRef.current, azimuth, elevation));
+      }
+      updateShadowBuildingOverlay(!playingRef.current);
     }, delay);
   }, [updateShadowBuildingOverlay]);
 
@@ -258,9 +275,21 @@ export default function MapCanvas({ solar, solarTimestamp, onCenterChange, camer
         [[0, 0], [canvas.clientWidth, canvas.clientHeight]],
         { layers },
       ).filter((feature) => feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon");
-      buildingsRef.current = normalizeBuildingFeatures(visibleFeatures as unknown as RenderedBuilding[]);
+      const normalizedBuildings = normalizeBuildingFeatures(visibleFeatures as unknown as RenderedBuilding[]);
+      const buildingSource = seoulPrecisionActiveRef.current ? "smap-2025" : "openfreemap-osm";
+      const buildingSignature = [
+        buildingSource,
+        center.lng.toFixed(5),
+        center.lat.toFixed(5),
+        normalizedBuildings.features.length,
+      ].join(":");
+      if (buildingSignature !== buildingSignatureRef.current) {
+        buildingsRef.current = normalizedBuildings;
+        buildingSignatureRef.current = buildingSignature;
+        buildingRevisionRef.current += 1;
+      }
       if (mapContainer.current) {
-        mapContainer.current.dataset.buildingSource = seoulPrecisionActiveRef.current ? "smap-2025" : "openfreemap-osm";
+        mapContainer.current.dataset.buildingSource = buildingSource;
         mapContainer.current.dataset.buildingCount = String(buildingsRef.current.features.length);
       }
       scheduleShadowUpdate(compactMap ? 140 : 50);
@@ -464,9 +493,8 @@ export default function MapCanvas({ solar, solarTimestamp, onCenterChange, camer
     }
     if (mapContainer.current) mapContainer.current.dataset.theme = solar.isDaylight ? "day" : "night";
     if (map?.isStyleLoaded()) applySolarBuildingLight(map, solar);
-    updateShadowBuildingOverlay();
     scheduleShadowUpdate(35);
-  }, [solar, solarTimestamp, scheduleShadowUpdate, updateShadowBuildingOverlay]);
+  }, [solar, solarTimestamp, playing, scheduleShadowUpdate, updateShadowBuildingOverlay]);
 
   return (
     <>
