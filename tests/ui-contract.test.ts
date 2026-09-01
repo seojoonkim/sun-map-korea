@@ -264,6 +264,14 @@ test("building walls use the live sun direction for directional light", () => {
   assert.match(mapCanvas, /applySolarBuildingLight\(map, solarRef\.current\)/);
 });
 
+test("daylight buildings keep enough ambient fill to avoid crushed black walls", () => {
+  assert.match(mapCanvas, /intensity:\s*currentSolar\.isDaylight\s*\?\s*1\.35\s*:\s*0\.15/);
+  assert.match(mapCanvas, /intensity:\s*currentSolar\.isDaylight\s*\?\s*0\.85\s*:\s*0\.18/);
+  assert.match(mapCanvas, /ambient:\s*0\.55/);
+  assert.match(mapCanvas, /diffuse:\s*0\.65/);
+  assert.match(mapCanvas, /shadowColor\s*=\s*\[0\.04,\s*0\.10,\s*0\.14,\s*0\.4\]/);
+});
+
 test("buildings cast real shadow-map occlusion onto other building walls", () => {
   assert.match(mapCanvas, /MapboxOverlay/);
   assert.match(mapCanvas, /LightingEffect/);

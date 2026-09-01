@@ -122,16 +122,16 @@ export default function MapCanvas({ solar, solarTimestamp, onCenterChange, camer
       id: "solar-shadow-light",
       timestamp: solarTimestampRef.current,
       color: [255, 244, 214],
-      intensity: currentSolar.isDaylight ? 2.1 : 0.15,
+      intensity: currentSolar.isDaylight ? 1.35 : 0.15,
       _shadow: true,
     });
     const ambientLight = new AmbientLight({
       id: "solar-ambient-light",
-      color: [185, 205, 220],
-      intensity: currentSolar.isDaylight ? 0.42 : 0.18,
+      color: [235, 235, 240],
+      intensity: currentSolar.isDaylight ? 0.85 : 0.18,
     });
     const lightingEffect = new LightingEffect({ ambientLight, sunLight });
-    lightingEffect.shadowColor = [0.04, 0.10, 0.14, 0.62];
+    lightingEffect.shadowColor = [0.04, 0.10, 0.14, 0.4];
     const wallShadowStart = performance.now();
     const wallSegments = createWallShadowSegments(
       buildingsRef.current,
@@ -156,10 +156,10 @@ export default function MapCanvas({ solar, solarTimestamp, onCenterChange, camer
           getElevation: (feature) => Number(feature.properties?.segmentHeight ?? DEFAULT_BUILDING_HEIGHT),
           getFillColor: deckBuildingColor,
           material: {
-            ambient: 0.28,
-            diffuse: 0.82,
-            shininess: 10,
-            specularColor: [70, 55, 60],
+            ambient: 0.55,
+            diffuse: 0.65,
+            shininess: 6,
+            specularColor: [90, 70, 75],
           },
           _subLayerProps: {
             "polygons-fill": { shadowEnabled: true },
