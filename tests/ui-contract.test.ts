@@ -103,9 +103,9 @@ test("essential interface copy stays readable on desktop and mobile", () => {
   assert.match(mobile, /\.brand-block strong\s*\{[^}]*font-size:15px/);
   assert.match(mobile, /\.geo-search input\s*\{[^}]*font-size:16px/);
   assert.match(mobile, /\.readout-heading h1\s*\{[^}]*font-size:18px/);
-  assert.match(mobile, /\.readout-values span\s*\{[^}]*font-size:12px/);
-  assert.match(mobile, /\.readout-values strong\s*\{[^}]*font-size:17px/);
-  assert.match(mobile, /\.readout-values\s*\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(mobile, /\.readout-values span\s*\{[^}]*font-size:11px/);
+  assert.match(mobile, /\.readout-values strong\s*\{[^}]*font-size:15px/);
+  assert.match(mobile, /\.readout-values\s*\{[^}]*grid-template-columns:minmax\(0,\.85fr\)[^}]*minmax\(0,1\.45fr\)/);
   assert.match(mobile, /\.date-input input\s*\{[^}]*font-size:16px/);
   assert.match(mobile, /\.building-loading\s*\{[^}]*top:230px/);
 });
